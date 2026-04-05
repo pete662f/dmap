@@ -168,13 +168,6 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        AttributionBar(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .navigationBarsPadding()
-                .padding(start = 14.dp, bottom = 14.dp),
-        )
-
         LocateMeButton(
             enabled = uiState.backendState != MapBackendState.Unavailable,
             active = uiState.locationAvailabilityState == LocationAvailabilityState.Available,
@@ -267,30 +260,6 @@ private fun LocateMeButton(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-        )
-    }
-}
-
-@Composable
-private fun AttributionBar(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
-                shape = MaterialTheme.shapes.small,
-            )
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = "OpenMapTiles",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "OpenStreetMap",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
