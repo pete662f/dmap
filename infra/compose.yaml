@@ -1,0 +1,10 @@
+services:
+  tileserver:
+    image: maptiler/tileserver-gl-light:v5.5.0
+    container_name: dmap2-tileserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./tileserver:/data
+      - ./data:/data/data:ro
+    restart: unless-stopped

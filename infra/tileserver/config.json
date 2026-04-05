@@ -1,0 +1,28 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "fonts": "fonts",
+      "styles": "styles"
+    }
+  },
+  "styles": {
+    "osm-liberty": {
+      "style": "osm-liberty/style.json",
+      "tilejson": {
+        "type": "baselayer",
+        "bounds": [
+          8.0,
+          54.4,
+          15.3,
+          57.9
+        ]
+      }
+    }
+  },
+  "data": {
+    "openmaptiles": {
+      "mbtiles": "data/tiles/denmark.mbtiles"
+    }
+  }
+}

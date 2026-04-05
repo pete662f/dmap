@@ -1,0 +1,10 @@
+<resources>
+    <color name="map_blue">#1D4ED8</color>
+    <color name="map_surface">#F5F3EE</color>
+    <color name="map_ink">#1C1917</color>
+    <color name="map_sand">#D6C5A0</color>
+    <color name="location_dot_blue">#1D5DD8</color>
+    <color name="location_dot_blue_dark">#1547A7</color>
+    <color name="location_dot_white">#FFFFFFFF</color>
+    <color name="location_accuracy_blue">#4D6FA8FF</color>
+</resources>
