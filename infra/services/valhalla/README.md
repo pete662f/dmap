@@ -1,19 +1,42 @@
-# Future Valhalla Slot
+# Valhalla Routing
 
-M1 does not run a routing backend.
+M3 runs a self-hosted Valhalla routing backend on `http://localhost:8082`.
 
-This directory is reserved for M2 so the repo structure does not need to change when routing is added.
+The repo uses the official scripted Docker image:
 
-Planned responsibility:
+- `ghcr.io/valhalla/valhalla-scripted:latest`
 
-- Docker Compose service definition or reverse-proxy wiring for Valhalla
-- Tile extraction / routing graph build scripts for Denmark
-- API contract docs for app-side `RoutingService`
+Local routing input and generated artifacts live under:
 
-Expected future local base URL:
+- `infra/data/routing/valhalla/`
 
-- `http://localhost:8082`
+Expected contents after bootstrap and first startup:
 
-Expected app integration seam:
+- `denmark.osm.pbf`
+- `valhalla.json`
+- `denmark_tiles.tar`
+- `admins.sqlite`
+- `timezones.sqlite`
+
+Bootstrap flow:
+
+1. `bootstrap-denmark.sh` generates the Denmark vector tiles and stages `infra/data/osm/denmark.osm.pbf`
+2. `bootstrap-valhalla.sh` copies that extract into `infra/data/routing/valhalla/denmark.osm.pbf`
+3. `docker compose -f infra/compose.yaml up` starts Valhalla and lets the official image build its own routing graph
+
+The Android app talks to this backend only through:
 
 - `android/app/src/main/java/com/dmap/services/routing/RoutingService.kt`
+
+Current M3 scope:
+
+- one primary A→B route
+- driving, walking, and cycling
+- distance and duration summary
+
+Out of scope for this milestone:
+
+- alternatives
+- maneuver lists
+- rerouting
+- active navigation

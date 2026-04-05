@@ -1,4 +1,5 @@
 .DS_Store
+.env
 .idea/
 *.iml
 
@@ -11,6 +12,13 @@
 /infra/.cache/
 /infra/data/osm/*
 !/infra/data/osm/.gitkeep
+/infra/data/search/*
+!/infra/data/search/.gitkeep
+/infra/data/routing/*
+!/infra/data/routing/.gitkeep
+!/infra/data/routing/valhalla/
+/infra/data/routing/valhalla/*
+!/infra/data/routing/valhalla/.gitkeep
 /infra/data/tiles/*
 !/infra/data/tiles/.gitkeep
 /infra/tileserver/fonts/*

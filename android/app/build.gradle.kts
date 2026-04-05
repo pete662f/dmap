@@ -21,11 +21,11 @@ val mapBackendUrl = (findProperty("dmap.backendUrl") as String?)
 
 val searchBackendUrl = (findProperty("dmap.searchBackendUrl") as String?)
     ?: localProperties.getProperty("dmap.searchBackendUrl")
-    ?: ""
+    ?: "http://10.0.2.2:8081"
 
 val routingBackendUrl = (findProperty("dmap.routingBackendUrl") as String?)
     ?: localProperties.getProperty("dmap.routingBackendUrl")
-    ?: ""
+    ?: "http://10.0.2.2:8082"
 
 android {
     namespace = "com.dmap"
@@ -94,9 +94,14 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
 
     implementation("org.maplibre.gl:android-sdk:13.0.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    testImplementation("junit:junit:4.13.2")
 }

@@ -20,19 +20,28 @@
 
 ## M2
 
-- Nominatim service in `infra/services/nominatim/`
+- Photon service in `infra/services/photon/`
 - Real `SearchService` implementation
-- Search UI and result markers
+- Search UI, result markers, and selected-place card
 - Reverse geocoding support
 
 ## M3
 
 - Valhalla service in `infra/services/valhalla/`
 - Real `RoutingService` implementation
+- Route origin/destination flow
+- Driving, walking, and cycling
 - Route line rendering
-- ETA, distance, and route alternatives
-- Offline region downloads
-- Cache tuning and eviction controls
-- Rich custom POI interaction
+- Distance and duration summary
+- Search-to-route and long-press-to-route flows
+
+## M4
+
+- Maneuver list and richer place actions
+- Active navigation session
+- Rerouting
+- Route alternatives
+- Offline regions and offline routing exploration
+- Favorites, recents, and saved places
 - Data refresh/import hardening
 - Production-minded backend topology and observability

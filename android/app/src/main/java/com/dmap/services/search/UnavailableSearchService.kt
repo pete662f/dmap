@@ -1,16 +1,21 @@
 package com.dmap.services.search
 
 import com.dmap.place.SearchResult
+import java.io.IOException
 
-class StubSearchService : SearchService {
+class UnavailableSearchService : SearchService {
     override suspend fun search(
         query: String,
         bias: SearchBias?,
         limit: Int,
-    ): List<SearchResult> = emptyList()
+    ): List<SearchResult> {
+        throw IOException("Search backend is not configured.")
+    }
 
     override suspend fun reverseGeocode(
         longitude: Double,
         latitude: Double,
-    ): SearchResult? = null
+    ): SearchResult? {
+        throw IOException("Search backend is not configured.")
+    }
 }

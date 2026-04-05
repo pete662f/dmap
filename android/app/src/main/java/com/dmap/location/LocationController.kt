@@ -86,6 +86,18 @@ class LocationController(
         }
     }
 
+    fun lastKnownLocation(mapLibreMap: MapLibreMap?): LatLng? {
+        if (!hasLocationPermission() || mapLibreMap == null) return null
+
+        val locationComponent = mapLibreMap.locationComponent
+        if (!locationComponent.isLocationComponentActivated || !locationComponent.isLocationComponentEnabled) {
+            return null
+        }
+
+        val lastKnownLocation = locationComponent.lastKnownLocation ?: return null
+        return LatLng(lastKnownLocation.latitude, lastKnownLocation.longitude)
+    }
+
     fun recenterOnUser(
         mapLibreMap: MapLibreMap,
         zoom: Double,

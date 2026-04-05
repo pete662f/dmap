@@ -8,3 +8,38 @@ services:
       - ./tileserver:/data
       - ./data:/data/data:ro
     restart: unless-stopped
+  photon:
+    build:
+      context: ./services/photon
+    container_name: dmap2-photon
+    ports:
+      - "8081:2322"
+    environment:
+      PHOTON_CORS_MODE: any
+      PHOTON_DEFAULT_LANGUAGE: da
+      PHOTON_JAVA_XMX: 2g
+      PHOTON_MAX_RESULTS: 8
+      PHOTON_MAX_REVERSE_RESULTS: 3
+      PHOTON_QUERY_TIMEOUT: 4
+    volumes:
+      - ./data/search/photon:/srv/photon
+    restart: unless-stopped
+  valhalla:
+    image: ${VALHALLA_IMAGE:-ghcr.io/valhalla/valhalla-scripted:latest}
+    container_name: dmap2-valhalla
+    ports:
+      - "8082:8002"
+    environment:
+      build_admins: "True"
+      build_time_zones: "True"
+      build_transit: "False"
+      build_tar: "True"
+      force_rebuild: "False"
+      serve_tiles: "True"
+      server_threads: "4"
+      tileset_name: "denmark_tiles"
+      use_default_speeds_config: "True"
+      use_tiles_ignore_pbf: "False"
+    volumes:
+      - ./data/routing/valhalla:/custom_files
+    restart: unless-stopped

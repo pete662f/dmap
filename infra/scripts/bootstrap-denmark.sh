@@ -93,6 +93,12 @@ fi
 echo "==> Preparing self-hosted style assets"
 "${SCRIPT_DIR}/prepare-style-assets.sh"
 
+echo "==> Preparing self-hosted search assets"
+"${SCRIPT_DIR}/bootstrap-photon.sh"
+
+echo "==> Preparing self-hosted routing assets"
+"${SCRIPT_DIR}/bootstrap-valhalla.sh"
+
 echo
 echo "Bootstrap complete."
 echo "MBTiles: ${OUTPUT_MBTILES}"
