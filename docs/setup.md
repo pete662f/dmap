@@ -146,7 +146,9 @@ Run from Android Studio:
 - POIs still come entirely from the self-hosted vector tile style. There is no POI API in M2.
 - Search is served by the self-hosted Photon backend, not a public geocoder.
 - Search requests are debounced in the app and biased to Denmark using the current map center when available.
-- Long-press on the map performs reverse geocoding and falls back to a dropped pin if no useful place label is available.
+- Tapping a visible rendered POI selects that POI immediately.
+- Long-press on the map drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate.
+- Empty taps do not clear the current selection and do not snap to nearby POIs.
 
 ## Caching
 

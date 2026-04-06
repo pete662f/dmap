@@ -11,10 +11,15 @@ import com.dmap.place.PlaceKind
 import com.dmap.place.PlaceSummary
 import com.dmap.place.SelectedPlace
 import com.dmap.place.SelectedPlaceOrigin
+import com.dmap.place.SelectedPlaceType
 import com.dmap.place.SearchResult
 import com.dmap.services.search.SearchBias
 import com.dmap.services.search.SearchService
-import java.io.IOException
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.FlowPreview
@@ -26,22 +31,29 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class MapViewModel(
-    appContainer: AppContainer,
+    private val searchService: SearchService,
+    styleUrl: String,
+    backendUrl: String,
 ) : ViewModel() {
     private var nextMessageId = 1L
     private var nextSelectionId = 1L
 
-    private val searchService: SearchService = appContainer.searchService
     private val searchQuery = MutableStateFlow("")
     private val searchBias = MutableStateFlow<SearchBias?>(null)
 
     private val _uiState = MutableStateFlow(
         MapUiState(
-            styleUrl = appContainer.mapStyleLoader.styleUrl(),
-            backendUrl = appContainer.mapStyleLoader.backendBaseUrl(),
+            styleUrl = styleUrl,
+            backendUrl = backendUrl,
         ),
     )
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
+
+    constructor(appContainer: AppContainer) : this(
+        searchService = appContainer.searchService,
+        styleUrl = appContainer.mapStyleLoader.styleUrl(),
+        backendUrl = appContainer.mapStyleLoader.backendBaseUrl(),
+    )
 
     init {
         observeSearch()
@@ -195,11 +207,73 @@ class MapViewModel(
                     selectedPlace = SelectedPlace(
                         selectionId = nextSelectionId++,
                         place = result.place,
+                        type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.Search,
                     ),
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
             )
+        }
+    }
+
+    fun selectRenderedPoi(place: PlaceSummary) {
+        searchQuery.value = ""
+        val selectionId = nextSelectionId++
+        _uiState.update { state ->
+            state.copy(
+                searchUiState = state.searchUiState.copy(
+                    query = "",
+                    status = SearchStatus.Idle,
+                    results = emptyList(),
+                    errorMessage = null,
+                    selectedPlace = SelectedPlace(
+                        selectionId = selectionId,
+                        place = place,
+                        type = SelectedPlaceType.PlaceResult,
+                        origin = SelectedPlaceOrigin.PoiTap,
+                    ),
+                ),
+                overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+            )
+        }
+
+        viewModelScope.launch {
+            val enrichedPlace = runCatching {
+                searchService.reverseGeocode(
+                    longitude = place.longitude,
+                    latitude = place.latitude,
+                )
+            }.getOrNull()?.place?.takeIf { resultPlace ->
+                distanceMeters(
+                    startLatitude = place.latitude,
+                    startLongitude = place.longitude,
+                    endLatitude = resultPlace.latitude,
+                    endLongitude = resultPlace.longitude,
+                ) <= LONG_PRESS_LABEL_MAX_DISTANCE_METERS
+            }?.let { labelSource ->
+                place.copy(
+                    title = if (place.title == "Selected place") labelSource.title else place.title,
+                    subtitle = labelSource.subtitle ?: place.subtitle,
+                    kind = if (place.kind == PlaceKind.Unknown) labelSource.kind else place.kind,
+                    categoryHint = place.categoryHint ?: labelSource.categoryHint,
+                )
+            } ?: return@launch
+
+            _uiState.update { state ->
+                val currentSelection = state.searchUiState.selectedPlace
+                if (
+                    currentSelection?.selectionId != selectionId ||
+                    currentSelection.origin != SelectedPlaceOrigin.PoiTap
+                ) {
+                    return@update state
+                }
+
+                state.copy(
+                    searchUiState = state.searchUiState.copy(
+                        selectedPlace = currentSelection.copy(place = enrichedPlace),
+                    ),
+                )
+            }
         }
     }
 
@@ -211,22 +285,33 @@ class MapViewModel(
         }
     }
 
-    fun reverseGeocodeSelection(
+    fun selectCoordinateFromLongPress(
         longitude: Double,
         latitude: Double,
     ) {
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    overlayMessage = newMessage(
-                        source = MapOverlaySource.Search,
-                        tone = MapOverlayTone.Info,
-                        text = "Looking up this spot…",
-                        autoDismissMillis = null,
-                    ),
-                )
-            }
+        val selectionId = nextSelectionId++
+        val initialSelection = SelectedPlace(
+            selectionId = selectionId,
+            place = coordinateSummary(latitude, longitude, labelSource = null),
+            type = SelectedPlaceType.CoordinatePin,
+            origin = SelectedPlaceOrigin.LongPress,
+        )
 
+        _uiState.update { state ->
+            state.copy(
+                searchUiState = state.searchUiState.copy(
+                    selectedPlace = initialSelection,
+                ),
+                overlayMessage = newMessage(
+                    source = MapOverlaySource.Search,
+                    tone = MapOverlayTone.Info,
+                    text = "Looking up this spot…",
+                    autoDismissMillis = null,
+                ),
+            )
+        }
+
+        viewModelScope.launch {
             val selection = runCatching {
                 searchService.reverseGeocode(
                     longitude = longitude,
@@ -235,8 +320,37 @@ class MapViewModel(
             }.fold(
                 onSuccess = { result ->
                     when {
-                        result != null -> result.place to null
-                        else -> droppedPin(latitude, longitude) to newMessage(
+                        result != null -> {
+                            val distanceMeters = distanceMeters(
+                                startLatitude = latitude,
+                                startLongitude = longitude,
+                                endLatitude = result.place.latitude,
+                                endLongitude = result.place.longitude,
+                            )
+                            if (distanceMeters <= LONG_PRESS_LABEL_MAX_DISTANCE_METERS) {
+                                coordinateSummary(
+                                    latitude = latitude,
+                                    longitude = longitude,
+                                    labelSource = result.place,
+                                ) to null
+                            } else {
+                                coordinateSummary(
+                                    latitude = latitude,
+                                    longitude = longitude,
+                                    labelSource = null,
+                                ) to newMessage(
+                                    source = MapOverlaySource.Search,
+                                    tone = MapOverlayTone.Info,
+                                    text = "No nearby place found. Showing a dropped pin.",
+                                    autoDismissMillis = 3_500L,
+                                )
+                            }
+                        }
+                        else -> coordinateSummary(
+                            latitude = latitude,
+                            longitude = longitude,
+                            labelSource = null,
+                        ) to newMessage(
                             source = MapOverlaySource.Search,
                             tone = MapOverlayTone.Info,
                             text = "No nearby place found. Showing a dropped pin.",
@@ -245,7 +359,11 @@ class MapViewModel(
                     }
                 },
                 onFailure = {
-                    droppedPin(latitude, longitude) to newMessage(
+                    coordinateSummary(
+                        latitude = latitude,
+                        longitude = longitude,
+                        labelSource = null,
+                    ) to newMessage(
                         source = MapOverlaySource.Search,
                         tone = MapOverlayTone.Error,
                         text = "Search backend is unavailable. Showing a dropped pin.",
@@ -255,15 +373,22 @@ class MapViewModel(
             )
 
             _uiState.update { state ->
+                val currentSelection = state.searchUiState.selectedPlace
+                if (currentSelection?.selectionId != selectionId) {
+                    return@update state
+                }
+
                 state.copy(
                     searchUiState = state.searchUiState.copy(
                         selectedPlace = SelectedPlace(
-                            selectionId = nextSelectionId++,
+                            selectionId = selectionId,
                             place = selection.first,
-                            origin = SelectedPlaceOrigin.Reverse,
+                            type = SelectedPlaceType.CoordinatePin,
+                            origin = SelectedPlaceOrigin.LongPress,
                         ),
                     ),
-                    overlayMessage = selection.second,
+                    overlayMessage = selection.second
+                        ?: state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
                 )
             }
         }
@@ -350,18 +475,37 @@ class MapViewModel(
         }
     }
 
-    private fun droppedPin(
+    private fun coordinateSummary(
         latitude: Double,
         longitude: Double,
+        labelSource: PlaceSummary?,
     ): PlaceSummary {
         return PlaceSummary(
-            id = "drop:${latitude},${longitude}",
-            title = "Dropped pin",
-            subtitle = null,
+            id = "coord:${latitude},${longitude}",
+            title = labelSource?.title ?: "Dropped pin",
+            subtitle = labelSource?.subtitle,
             latitude = latitude,
             longitude = longitude,
-            kind = PlaceKind.Unknown,
+            kind = labelSource?.kind ?: PlaceKind.Unknown,
+            categoryHint = labelSource?.categoryHint,
         )
+    }
+
+    private fun distanceMeters(
+        startLatitude: Double,
+        startLongitude: Double,
+        endLatitude: Double,
+        endLongitude: Double,
+    ): Double {
+        val latitudeDelta = Math.toRadians(endLatitude - startLatitude)
+        val longitudeDelta = Math.toRadians(endLongitude - startLongitude)
+        val startLatitudeRadians = Math.toRadians(startLatitude)
+        val endLatitudeRadians = Math.toRadians(endLatitude)
+
+        val haversine = sin(latitudeDelta / 2).pow(2) +
+            cos(startLatitudeRadians) * cos(endLatitudeRadians) * sin(longitudeDelta / 2).pow(2)
+        val angularDistance = 2 * asin(sqrt(haversine.coerceIn(0.0, 1.0)))
+        return EARTH_RADIUS_METERS * angularDistance
     }
 
     private fun newMessage(
@@ -380,6 +524,9 @@ class MapViewModel(
     }
 
     companion object {
+        private const val LONG_PRESS_LABEL_MAX_DISTANCE_METERS = 25.0
+        private const val EARTH_RADIUS_METERS = 6_371_000.0
+
         fun factory(appContainer: AppContainer): ViewModelProvider.Factory {
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

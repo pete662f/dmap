@@ -20,7 +20,7 @@ This repo contains:
 - Denmark-first camera defaults, zoom bounds, and smoother recentering
 - Debounced typed search with readable result rows
 - Selected-place marker plus compact place card
-- Reverse geocoding on long-press
+- Rendered POI tap selection plus exact-coordinate long-press pins
 - Ambient cache configuration from day one
 - Clean extension points for future search, place detail, and routing overlays
 
@@ -125,7 +125,9 @@ The backend helper scripts use the same repo `.env` file:
 - Recentering animates to the user only when the user asks for it
 - Search requests are debounced and biased to Denmark
 - Search results are normalized into readable titles and concise subtitles
-- Selecting a result or long-pressing the map places a single selected-place marker and opens a compact place card
+- Selecting a search result or tapping a visible rendered POI places a single selected-place marker and opens a compact place card immediately
+- Long-press drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate
+- Empty taps do not clear the current selection and do not snap to nearby POIs
 
 ## Backend endpoints
 

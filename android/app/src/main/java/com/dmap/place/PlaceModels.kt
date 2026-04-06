@@ -54,13 +54,20 @@ data class SearchResult(
     val place: PlaceSummary,
 )
 
+enum class SelectedPlaceType {
+    PlaceResult,
+    CoordinatePin,
+}
+
 enum class SelectedPlaceOrigin {
     Search,
-    Reverse,
+    PoiTap,
+    LongPress,
 }
 
 data class SelectedPlace(
     val selectionId: Long,
     val place: PlaceSummary,
+    val type: SelectedPlaceType,
     val origin: SelectedPlaceOrigin,
 )
