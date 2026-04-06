@@ -62,7 +62,7 @@ import com.dmap.location.LocationAvailabilityState
 import com.dmap.location.LocationPermissionState
 import com.dmap.location.LocateMeResult
 import com.dmap.place.SelectedPlace
-import com.dmap.place.SelectedPlaceOrigin
+import com.dmap.place.SelectedPlaceType
 import com.dmap.place.SearchResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -85,6 +85,9 @@ fun MapScreen(
     val mapView = rememberMapViewWithLifecycle(lifecycleOwner)
     val mapPresentation = remember { MapPresentationConfig.denmark() }
     val markerController = remember(context) { SelectedPlaceMarkerController(context) }
+    val poiHitDetector = remember(context) {
+        RenderedPoiHitDetector(context.resources.displayMetrics.density)
+    }
 
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var currentStyle by remember { mutableStateOf<Style?>(null) }
@@ -151,9 +154,19 @@ fun MapScreen(
                 zoom = camera.zoom,
             )
         }
+        val clickListener = MapLibreMap.OnMapClickListener { point ->
+            focusManager.clearFocus(force = true)
+            val selectedPoi = poiHitDetector.hitTest(map, point)
+            if (selectedPoi != null) {
+                viewModel.selectRenderedPoi(selectedPoi)
+                true
+            } else {
+                false
+            }
+        }
         val longClickListener = MapLibreMap.OnMapLongClickListener { point ->
             focusManager.clearFocus(force = true)
-            viewModel.reverseGeocodeSelection(
+            viewModel.selectCoordinateFromLongPress(
                 longitude = point.longitude,
                 latitude = point.latitude,
             )
@@ -161,10 +174,12 @@ fun MapScreen(
         }
 
         map.addOnCameraIdleListener(cameraListener)
+        map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
 
         onDispose {
             map.removeOnCameraIdleListener(cameraListener)
+            map.removeOnMapClickListener(clickListener)
             map.removeOnMapLongClickListener(longClickListener)
         }
     }
@@ -577,7 +592,10 @@ private fun SelectedPlaceCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (selectedPlace.origin == SelectedPlaceOrigin.Reverse || place.subtitle == null) {
+                if (
+                    selectedPlace.type == SelectedPlaceType.CoordinatePin &&
+                    place.title == "Dropped pin"
+                ) {
                     Text(
                         text = place.coordinateLabel,
                         style = MaterialTheme.typography.bodySmall,
