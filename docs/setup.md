@@ -104,9 +104,14 @@ dmap.searchBackendUrl=http://192.168.1.10:8081
 Build from CLI:
 
 ```bash
-cd android
-ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew assembleDebug
+./infra/scripts/build-apk.sh
 ```
+
+Optional:
+
+- release build: `./infra/scripts/build-apk.sh --release`
+- override backend URLs for the build:
+  `./infra/scripts/build-apk.sh --backend-url http://192.168.1.10:8080 --search-backend-url http://192.168.1.10:8081`
 
 Run from Android Studio:
 

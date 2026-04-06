@@ -79,8 +79,7 @@ dmap.searchBackendUrl=http://192.168.1.10:8081
 Then run:
 
 ```bash
-cd android
-ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew assembleDebug
+./infra/scripts/build-apk.sh
 ```
 
 Or open [`android`](./android) in Android Studio and run the `app` configuration.
@@ -96,7 +95,8 @@ A template lives at [`android/local.properties.example`](./android/local.propert
 - Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`
 - Start backends: `docker compose -f infra/compose.yaml up`
 - Verify map + search backends: `./infra/scripts/verify-backend.sh`
-- Build Android debug APK: `cd android && ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew assembleDebug`
+- Build Android debug APK: `./infra/scripts/build-apk.sh`
+- Build Android release APK: `./infra/scripts/build-apk.sh --release`
 
 ## M2 place experience
 
