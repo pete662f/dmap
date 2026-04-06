@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAP_BASE_URL="${1:-http://localhost:8080}"
-SEARCH_BASE_URL="${2:-http://localhost:8081}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${SCRIPT_DIR}/load-env.sh"
+dmap_load_env
+
+MAP_BASE_URL="${1:-$(dmap_resolve_url DMAP_BACKEND_URL 8080 localhost)}"
+SEARCH_BASE_URL="${2:-$(dmap_resolve_url DMAP_SEARCH_BACKEND_URL 8081 localhost)}"
 
 check() {
   local url="$1"

@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+source "${SCRIPT_DIR}/load-env.sh"
+dmap_load_env
 source "${INFRA_DIR}/versions.env"
 
 CACHE_DIR="${INFRA_DIR}/.cache/photon"

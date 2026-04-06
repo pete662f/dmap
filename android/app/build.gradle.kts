@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -13,19 +14,73 @@ val localProperties = Properties().apply {
     }
 }
 
+fun loadDotEnv(file: File): Map<String, String> {
+    if (!file.exists()) {
+        return emptyMap()
+    }
+
+    val values = mutableMapOf<String, String>()
+    file.forEachLine { rawLine ->
+        val line = rawLine.trim()
+        if (line.isEmpty() || line.startsWith("#")) {
+            return@forEachLine
+        }
+
+        val separatorIndex = line.indexOf('=')
+        if (separatorIndex <= 0) {
+            return@forEachLine
+        }
+
+        val key = line.substring(0, separatorIndex).trim()
+        var value = line.substring(separatorIndex + 1).trim()
+        if (value.length >= 2) {
+            val first = value.first()
+            val last = value.last()
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                value = value.substring(1, value.length - 1)
+            }
+        }
+        values[key] = value
+    }
+
+    return values
+}
+
+fun configuredValue(
+    gradleProperty: String,
+    localProperty: String,
+    envValue: String?,
+    defaultValue: String,
+): String = (findProperty(gradleProperty) as String?)
+    ?: localProperties.getProperty(localProperty)
+    ?: envValue
+    ?: defaultValue
+
 fun quoted(value: String): String = "\"${value}\""
 
-val mapBackendUrl = (findProperty("dmap.backendUrl") as String?)
-    ?: localProperties.getProperty("dmap.backendUrl")
-    ?: "http://10.0.2.2:8080"
+val dotEnv = loadDotEnv(rootProject.rootDir.resolve(".env"))
+val dmapHostIp = dotEnv["DMAP_HOST_IP"]?.takeIf { it.isNotBlank() }
 
-val searchBackendUrl = (findProperty("dmap.searchBackendUrl") as String?)
-    ?: localProperties.getProperty("dmap.searchBackendUrl")
-    ?: "http://10.0.2.2:8081"
+val mapBackendUrl = configuredValue(
+    gradleProperty = "dmap.backendUrl",
+    localProperty = "dmap.backendUrl",
+    envValue = dotEnv["DMAP_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+    defaultValue = dmapHostIp?.let { "http://$it:8080" } ?: "http://10.0.2.2:8080",
+)
 
-val routingBackendUrl = (findProperty("dmap.routingBackendUrl") as String?)
-    ?: localProperties.getProperty("dmap.routingBackendUrl")
-    ?: ""
+val searchBackendUrl = configuredValue(
+    gradleProperty = "dmap.searchBackendUrl",
+    localProperty = "dmap.searchBackendUrl",
+    envValue = dotEnv["DMAP_SEARCH_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+    defaultValue = dmapHostIp?.let { "http://$it:8081" } ?: "http://10.0.2.2:8081",
+)
+
+val routingBackendUrl = configuredValue(
+    gradleProperty = "dmap.routingBackendUrl",
+    localProperty = "dmap.routingBackendUrl",
+    envValue = dotEnv["DMAP_ROUTING_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+    defaultValue = dmapHostIp?.let { "http://$it:8082" } ?: "",
+)
 
 android {
     namespace = "com.dmap"

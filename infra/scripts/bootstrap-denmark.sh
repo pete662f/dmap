@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+source "${SCRIPT_DIR}/load-env.sh"
+dmap_load_env
 source "${INFRA_DIR}/versions.env"
 
 CACHE_DIR="${INFRA_DIR}/.cache"
@@ -99,4 +101,4 @@ echo "==> Preparing self-hosted search assets"
 echo
 echo "Bootstrap complete."
 echo "MBTiles: ${OUTPUT_MBTILES}"
-echo "Run: docker compose -f ${INFRA_DIR}/compose.yaml up"
+echo "Run: ${SCRIPT_DIR}/up-backend.sh"

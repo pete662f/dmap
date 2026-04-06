@@ -7,6 +7,9 @@ REPO_DIR="$(cd "${INFRA_DIR}/.." && pwd)"
 ANDROID_DIR="${REPO_DIR}/android"
 LOCAL_PROPERTIES_FILE="${ANDROID_DIR}/local.properties"
 
+source "${SCRIPT_DIR}/load-env.sh"
+dmap_load_env
+
 BUILD_TYPE="debug"
 CLEAN_BUILD=0
 MAP_BACKEND_URL="${DMAP_BACKEND_URL:-}"
@@ -33,6 +36,9 @@ Environment variable fallbacks:
   DMAP_SEARCH_BACKEND_URL
   DMAP_ROUTING_BACKEND_URL
   ANDROID_HOME / ANDROID_SDK_ROOT
+
+Build config precedence:
+  command-line overrides > android/local.properties > repo .env > defaults
 EOF
 }
 

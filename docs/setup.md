@@ -66,7 +66,7 @@ You can still generate the MBTiles on another machine and install it here if you
 ### Start the backend
 
 ```bash
-docker compose -f infra/compose.yaml up
+./infra/scripts/up-backend.sh
 ```
 
 Useful endpoints:
@@ -83,6 +83,7 @@ Useful endpoints:
 ```
 
 The verification script now checks both the tile backend and the Photon search backend.
+When no explicit URLs are passed, it resolves backend URLs from the repo root `.env`.
 
 ## Android setup
 
@@ -107,11 +108,29 @@ Build from CLI:
 ./infra/scripts/build-apk.sh
 ```
 
+The Android build can also read backend settings from the repo root `.env`:
+
+- `DMAP_HOST_IP=192.168.1.10` derives backend URLs for ports `8080`, `8081`, and `8082`
+- or use explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_ROUTING_BACKEND_URL`
+
+Precedence is:
+
+- explicit script or Gradle `-P` overrides
+- `android/local.properties`
+- repo `.env`
+- emulator defaults
+
 Optional:
 
 - release build: `./infra/scripts/build-apk.sh --release`
 - override backend URLs for the build:
   `./infra/scripts/build-apk.sh --backend-url http://192.168.1.10:8080 --search-backend-url http://192.168.1.10:8081`
+
+The shared repo `.env` is used by:
+
+- `./infra/scripts/build-apk.sh`
+- `./infra/scripts/verify-backend.sh`
+- `./infra/scripts/up-backend.sh`
 
 Run from Android Studio:
 

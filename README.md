@@ -38,7 +38,7 @@ This repo contains:
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon database dump under `infra/data/search/photon/`.
+This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
 
 Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies a deterministic mobile tuning pass so the generated style is ready for the Android presentation.
 
@@ -47,7 +47,7 @@ Photon bootstrap now imports the official Denmark `1.x` json dump into a local d
 ### 2. Start the local backends
 
 ```bash
-docker compose -f infra/compose.yaml up
+./infra/scripts/up-backend.sh
 ```
 
 The local services are served on:
@@ -86,6 +86,24 @@ Or open [`android`](./android) in Android Studio and run the `app` configuration
 
 A template lives at [`android/local.properties.example`](./android/local.properties.example).
 
+You can also set the backend URLs in the repo root `.env`. The Android build now reads:
+
+- `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8082`
+- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_ROUTING_BACKEND_URL`
+
+Build precedence is:
+
+- explicit Gradle/script overrides
+- `android/local.properties`
+- repo `.env`
+- emulator defaults
+
+The backend helper scripts use the same repo `.env` file:
+
+- `./infra/scripts/build-apk.sh`
+- `./infra/scripts/verify-backend.sh`
+- `./infra/scripts/up-backend.sh`
+
 ## Commands
 
 - Bootstrap data and style assets: `./infra/scripts/bootstrap-denmark.sh`
@@ -93,7 +111,7 @@ A template lives at [`android/local.properties.example`](./android/local.propert
 - Tune Planetiler heap size: `PLANETILER_JAVA_XMX=8g ./infra/scripts/bootstrap-denmark.sh`
 - Tune Planetiler threads: `PLANETILER_THREADS=6 ./infra/scripts/bootstrap-denmark.sh`
 - Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`
-- Start backends: `docker compose -f infra/compose.yaml up`
+- Start backends: `./infra/scripts/up-backend.sh`
 - Verify map + search backends: `./infra/scripts/verify-backend.sh`
 - Build Android debug APK: `./infra/scripts/build-apk.sh`
 - Build Android release APK: `./infra/scripts/build-apk.sh --release`
