@@ -1,18 +1,25 @@
 .DS_Store
 .idea/
 *.iml
+.env
+.env.*
+!.env.example
 
 /android/.gradle/
+/android/.idea/
 /android/.kotlin/
 /android/build/
 /android/local.properties
 /android/app/build/
+/android/app/.idea/
 
 /infra/.cache/
 /infra/data/osm/*
 !/infra/data/osm/.gitkeep
 /infra/data/tiles/*
 !/infra/data/tiles/.gitkeep
+/infra/data/search/photon/photon.jar
+/infra/data/search/photon/photon_data/
 /infra/tileserver/fonts/*
 !/infra/tileserver/fonts/.gitkeep
 /infra/tileserver/styles/osm-liberty/*

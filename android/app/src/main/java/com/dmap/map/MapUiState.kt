@@ -15,6 +15,7 @@ data class MapUiState(
     val backendState: MapBackendState = MapBackendState.Loading,
     val locationPermissionState: LocationPermissionState = LocationPermissionState.Unknown,
     val locationAvailabilityState: LocationAvailabilityState = LocationAvailabilityState.Idle,
+    val searchUiState: SearchUiState = SearchUiState(),
     val hasEverLoadedStyle: Boolean = false,
     val backendMessage: String? = null,
     val reloadToken: Int = 0,

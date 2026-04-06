@@ -8,3 +8,19 @@ services:
       - ./tileserver:/data
       - ./data:/data/data:ro
     restart: unless-stopped
+  photon:
+    build:
+      context: ./services/photon
+    container_name: dmap2-photon
+    ports:
+      - "8081:2322"
+    environment:
+      PHOTON_CORS_MODE: any
+      PHOTON_DEFAULT_LANGUAGE: da
+      PHOTON_JAVA_XMX: 2g
+      PHOTON_MAX_RESULTS: 8
+      PHOTON_MAX_REVERSE_RESULTS: 3
+      PHOTON_QUERY_TIMEOUT: 4
+    volumes:
+      - ./data/search/photon:/srv/photon
+    restart: unless-stopped

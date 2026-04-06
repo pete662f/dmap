@@ -20,9 +20,9 @@
 
 ## M2
 
-- Nominatim service in `infra/services/nominatim/`
+- Photon service in `infra/services/photon/`
 - Real `SearchService` implementation
-- Search UI and result markers
+- Search UI, result markers, and selected-place card
 - Reverse geocoding support
 
 ## M3

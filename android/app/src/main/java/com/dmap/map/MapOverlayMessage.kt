@@ -8,6 +8,7 @@ enum class MapOverlayTone {
 enum class MapOverlaySource {
     Backend,
     Location,
+    Search,
 }
 
 data class MapOverlayMessage(

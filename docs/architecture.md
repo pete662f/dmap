@@ -8,7 +8,7 @@ infra/    local tile infrastructure and bootstrap scripts
 docs/     setup, architecture, and roadmap
 ```
 
-## M1 backend
+## M2 backend
 
 ```text
 OSM Denmark extract
@@ -18,6 +18,11 @@ OSM Denmark extract
   -> OSM Liberty rewrite
   -> deterministic mobile style patch
   -> self-hosted style.json + sprites + glyphs
+  -> Android app
+
+Photon Denmark dump
+  -> self-hosted Photon service
+  -> forward search + reverse geocoding
   -> Android app
 ```
 
@@ -39,14 +44,18 @@ OSM Denmark extract
 - `MapPresentationConfig` owns Denmark-first camera defaults and zoom bounds
 - `MapViewModel` owns map screen UI state, lightweight overlay messages, and backend failure state
 - `LocationController` isolates MapLibre location enablement, location availability checks, and typed recenter results
+- `SearchService` is now a real service boundary for forward search and reverse geocoding
+- `SearchUiState` owns query text, loading/error/empty states, results, and the selected place
+- `SelectedPlaceMarkerController` owns the single runtime source/layer used for the current selected place marker
 
 ## Future extension points
 
 ### Search
 
 - App seam: `SearchService`
-- Infra seam: `infra/services/nominatim/`
+- Infra seam: `infra/services/photon/`
 - Planned future base URL: `http://localhost:8081`
+- Future improvements can add ranking tweaks, recents/history, or a different importer without changing the Android UI layer
 
 ### Routing
 
@@ -54,6 +63,8 @@ OSM Denmark extract
 - Infra seam: `infra/services/valhalla/`
 - Planned future base URL: `http://localhost:8082`
 
-## Why OSM Liberty
+## Why OSM Liberty + Photon
 
-OSM Liberty is still the base because it already exposes POIs and feels closer to a consumer map product than a stripped-down developer style. M1 keeps that base but adds a deterministic mobile-specific patch step so Android readability improvements do not turn into hand-edited generated-style drift.
+OSM Liberty remains the map base because it already exposes POIs and feels closer to a consumer map product than a stripped-down developer style. The repo keeps that base but adds a deterministic mobile-specific patch step so Android readability improvements do not turn into hand-edited generated-style drift.
+
+Photon is the M2 search backend because it gives a practical Denmark-only self-hosted forward-search and reverse-geocoding path with a published Denmark dump. That keeps the milestone small and reliable while preserving a clean future path toward richer ranking or a custom import pipeline.

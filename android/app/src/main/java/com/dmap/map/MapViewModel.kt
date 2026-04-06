@@ -2,19 +2,38 @@ package com.dmap.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.dmap.app.AppContainer
 import com.dmap.location.LocationAvailabilityState
 import com.dmap.location.LocationPermissionState
 import com.dmap.location.LocateMeResult
+import com.dmap.place.PlaceKind
+import com.dmap.place.PlaceSummary
+import com.dmap.place.SelectedPlace
+import com.dmap.place.SelectedPlaceOrigin
+import com.dmap.place.SearchResult
+import com.dmap.services.search.SearchBias
+import com.dmap.services.search.SearchService
+import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class MapViewModel(
     appContainer: AppContainer,
 ) : ViewModel() {
     private var nextMessageId = 1L
+    private var nextSelectionId = 1L
+
+    private val searchService: SearchService = appContainer.searchService
+    private val searchQuery = MutableStateFlow("")
+    private val searchBias = MutableStateFlow<SearchBias?>(null)
 
     private val _uiState = MutableStateFlow(
         MapUiState(
@@ -23,6 +42,10 @@ class MapViewModel(
         ),
     )
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
+
+    init {
+        observeSearch()
+    }
 
     fun setLocationPermission(granted: Boolean) {
         _uiState.update { state ->
@@ -134,6 +157,118 @@ class MapViewModel(
         }
     }
 
+    fun updateSearchQuery(query: String) {
+        searchQuery.value = query
+        _uiState.update { state ->
+            state.copy(
+                searchUiState = state.searchUiState.copy(
+                    query = query,
+                    status = if (query.trim().length < 2) SearchStatus.Idle else state.searchUiState.status,
+                    results = if (query.isBlank()) emptyList() else state.searchUiState.results,
+                    errorMessage = null,
+                ),
+            )
+        }
+    }
+
+    fun updateSearchBias(
+        latitude: Double,
+        longitude: Double,
+        zoom: Double,
+    ) {
+        searchBias.value = SearchBias(
+            latitude = latitude,
+            longitude = longitude,
+            zoom = zoom.toInt(),
+        )
+    }
+
+    fun selectSearchResult(result: SearchResult) {
+        searchQuery.value = ""
+        _uiState.update { state ->
+            state.copy(
+                searchUiState = state.searchUiState.copy(
+                    query = "",
+                    status = SearchStatus.Idle,
+                    results = emptyList(),
+                    errorMessage = null,
+                    selectedPlace = SelectedPlace(
+                        selectionId = nextSelectionId++,
+                        place = result.place,
+                        origin = SelectedPlaceOrigin.Search,
+                    ),
+                ),
+                overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+            )
+        }
+    }
+
+    fun clearSelectedPlace() {
+        _uiState.update { state ->
+            state.copy(
+                searchUiState = state.searchUiState.copy(selectedPlace = null),
+            )
+        }
+    }
+
+    fun reverseGeocodeSelection(
+        longitude: Double,
+        latitude: Double,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    overlayMessage = newMessage(
+                        source = MapOverlaySource.Search,
+                        tone = MapOverlayTone.Info,
+                        text = "Looking up this spot…",
+                        autoDismissMillis = null,
+                    ),
+                )
+            }
+
+            val selection = runCatching {
+                searchService.reverseGeocode(
+                    longitude = longitude,
+                    latitude = latitude,
+                )
+            }.fold(
+                onSuccess = { result ->
+                    when {
+                        result != null -> result.place to null
+                        else -> droppedPin(latitude, longitude) to newMessage(
+                            source = MapOverlaySource.Search,
+                            tone = MapOverlayTone.Info,
+                            text = "No nearby place found. Showing a dropped pin.",
+                            autoDismissMillis = 3_500L,
+                        )
+                    }
+                },
+                onFailure = {
+                    droppedPin(latitude, longitude) to newMessage(
+                        source = MapOverlaySource.Search,
+                        tone = MapOverlayTone.Error,
+                        text = "Search backend is unavailable. Showing a dropped pin.",
+                        autoDismissMillis = 4_500L,
+                    )
+                },
+            )
+
+            _uiState.update { state ->
+                state.copy(
+                    searchUiState = state.searchUiState.copy(
+                        selectedPlace = SelectedPlace(
+                            selectionId = nextSelectionId++,
+                            place = selection.first,
+                            origin = SelectedPlaceOrigin.Reverse,
+                        ),
+                    ),
+                    overlayMessage = selection.second,
+                )
+            }
+        }
+    }
+
     fun dismissOverlayMessage(messageId: Long) {
         _uiState.update { state ->
             if (state.overlayMessage?.id == messageId) {
@@ -153,6 +288,80 @@ class MapViewModel(
                 reloadToken = state.reloadToken + 1,
             )
         }
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun observeSearch() {
+        viewModelScope.launch {
+            combine(searchQuery, searchBias) { query, bias ->
+                query.trim() to bias
+            }.debounce(300L).collectLatest { (query, bias) ->
+                if (query.length < 2) {
+                    _uiState.update { state ->
+                        state.copy(
+                            searchUiState = state.searchUiState.copy(
+                                status = SearchStatus.Idle,
+                                results = emptyList(),
+                                errorMessage = null,
+                            ),
+                        )
+                    }
+                    return@collectLatest
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        searchUiState = state.searchUiState.copy(
+                            status = SearchStatus.Loading,
+                            results = emptyList(),
+                            errorMessage = null,
+                        ),
+                    )
+                }
+
+                runCatching {
+                    searchService.search(
+                        query = query,
+                        bias = bias,
+                        limit = 8,
+                    )
+                }.onSuccess { results ->
+                    _uiState.update { state ->
+                        state.copy(
+                            searchUiState = state.searchUiState.copy(
+                                status = if (results.isEmpty()) SearchStatus.Empty else SearchStatus.Results,
+                                results = results,
+                                errorMessage = null,
+                            ),
+                        )
+                    }
+                }.onFailure {
+                    _uiState.update { state ->
+                        state.copy(
+                            searchUiState = state.searchUiState.copy(
+                                status = SearchStatus.Error,
+                                results = emptyList(),
+                                errorMessage = "Search is temporarily unavailable.",
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun droppedPin(
+        latitude: Double,
+        longitude: Double,
+    ): PlaceSummary {
+        return PlaceSummary(
+            id = "drop:${latitude},${longitude}",
+            title = "Dropped pin",
+            subtitle = null,
+            latitude = latitude,
+            longitude = longitude,
+            kind = PlaceKind.Unknown,
+        )
     }
 
     private fun newMessage(
