@@ -8,7 +8,6 @@ source "${INFRA_DIR}/versions.env"
 
 CACHE_DIR="${INFRA_DIR}/.cache/photon"
 ARTIFACTS_DIR="${CACHE_DIR}/artifacts"
-EXTRACT_DIR="${CACHE_DIR}/extract"
 OUTPUT_DIR="${INFRA_DIR}/data/search/photon"
 
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
@@ -16,11 +15,12 @@ NO_REFRESH="${NO_REFRESH:-0}"
 
 PHOTON_JAR_FILE="photon-${PHOTON_VERSION}.jar"
 PHOTON_JAR_URL="https://github.com/komoot/photon/releases/download/${PHOTON_VERSION}/${PHOTON_JAR_FILE}"
-PHOTON_DB_ARCHIVE_FILE="photon-db-denmark-1.0-latest.tar.bz2"
-PHOTON_DB_ARCHIVE_URL="https://download1.graphhopper.com/public/europe/denmark/${PHOTON_DB_ARCHIVE_FILE}"
-PHOTON_DB_CHECKSUM_URL="${PHOTON_DB_ARCHIVE_URL}.md5"
+PHOTON_DUMP_FILE="photon-dump-${DENMARK_AREA}-${PHOTON_DUMP_SERIES}-latest.jsonl.zst"
+PHOTON_DUMP_URL="https://download1.graphhopper.com/public/europe/${DENMARK_AREA}/${PHOTON_DUMP_FILE}"
+PHOTON_DUMP_CHECKSUM_URL="${PHOTON_DUMP_URL}.md5"
+PHOTON_IMPORT_IMAGE="eclipse-temurin:21-jre-jammy"
 
-mkdir -p "${ARTIFACTS_DIR}" "${EXTRACT_DIR}" "${OUTPUT_DIR}"
+mkdir -p "${ARTIFACTS_DIR}" "${OUTPUT_DIR}"
 
 download_if_needed() {
   local url="$1"
@@ -53,38 +53,45 @@ verify_md5() {
 }
 
 if [[ "${FORCE_REBUILD}" == "1" ]]; then
-  rm -rf "${OUTPUT_DIR}/photon_data" "${OUTPUT_DIR}/photon.jar" "${EXTRACT_DIR:?}/"*
+  rm -rf "${OUTPUT_DIR}/photon_data" "${OUTPUT_DIR}/photon.jar"
 fi
 
 jar_target="${OUTPUT_DIR}/photon.jar"
 db_target="${OUTPUT_DIR}/photon_data"
 
-db_archive_file="${ARTIFACTS_DIR}/${PHOTON_DB_ARCHIVE_FILE}"
-db_checksum_file="${ARTIFACTS_DIR}/${PHOTON_DB_ARCHIVE_FILE}.md5"
+dump_file="${ARTIFACTS_DIR}/${PHOTON_DUMP_FILE}"
+dump_checksum_file="${ARTIFACTS_DIR}/${PHOTON_DUMP_FILE}.md5"
 
 echo "==> Preparing Photon ${PHOTON_VERSION}"
 download_if_needed "${PHOTON_JAR_URL}" "${jar_target}"
 
 if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
-  download_if_needed "${PHOTON_DB_ARCHIVE_URL}" "${db_archive_file}"
-  download_if_needed "${PHOTON_DB_CHECKSUM_URL}" "${db_checksum_file}"
-
-  if ! verify_md5 "${db_archive_file}" "$(checksum_value "${db_checksum_file}")"; then
-    echo "Photon Denmark dump checksum verification failed." >&2
+  if ! command -v zstd >/dev/null 2>&1; then
+    echo "zstd is required to import the Photon json dump." >&2
     exit 1
   fi
 
-  rm -rf "${EXTRACT_DIR:?}/"*
-  tar -xjf "${db_archive_file}" -C "${EXTRACT_DIR}"
+  download_if_needed "${PHOTON_DUMP_URL}" "${dump_file}"
+  download_if_needed "${PHOTON_DUMP_CHECKSUM_URL}" "${dump_checksum_file}"
 
-  extracted_photon_data="$(find "${EXTRACT_DIR}" -type d -name photon_data | head -n 1 || true)"
-  if [[ -z "${extracted_photon_data}" ]]; then
-    echo "Could not find photon_data after extracting ${PHOTON_DB_ARCHIVE_FILE}." >&2
+  if ! verify_md5 "${dump_file}" "$(checksum_value "${dump_checksum_file}")"; then
+    echo "Photon Denmark json dump checksum verification failed." >&2
     exit 1
   fi
 
   rm -rf "${db_target}"
-  mv "${extracted_photon_data}" "${db_target}"
+  docker pull "${PHOTON_IMPORT_IMAGE}" >/dev/null
+
+  # Build a fresh Photon DB from the official version-matched json dump.
+  zstd --stdout -d "${dump_file}" | docker run --rm -i \
+    -v "${OUTPUT_DIR}:/srv/photon" \
+    "${PHOTON_IMPORT_IMAGE}" \
+    java -jar /srv/photon/photon.jar import -data-dir /srv/photon -import-file -
+
+  if [[ ! -d "${db_target}" ]]; then
+    echo "Photon import did not produce ${db_target}." >&2
+    exit 1
+  fi
 fi
 
 echo "==> Photon artifacts ready"

@@ -42,6 +42,8 @@ This is the heaviest step. It runs the pinned multi-arch Planetiler container, g
 
 Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies a deterministic mobile tuning pass so the generated style is ready for the Android presentation.
 
+Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
+
 ### 2. Start the local backends
 
 ```bash

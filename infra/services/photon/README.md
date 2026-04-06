@@ -14,4 +14,4 @@ Runtime defaults:
 - in-container port: `2322`
 - default language: `da`
 
-Bootstrap is handled by `infra/scripts/bootstrap-photon.sh`, which downloads a pinned Photon jar plus the Denmark Photon data dump into `infra/data/search/photon/`.
+Bootstrap is handled by `infra/scripts/bootstrap-photon.sh`, which downloads a pinned Photon jar plus the Denmark Photon json dump and imports a local database into `infra/data/search/photon/`.

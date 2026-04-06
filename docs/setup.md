@@ -5,6 +5,7 @@
 - Docker Desktop or compatible Docker Engine with `docker compose`
 - Android Studio with Android SDK installed
 - Java 17+ for Android builds
+- `zstd` for Photon dump import during backend bootstrap
 
 Notes for this machine shape:
 
@@ -35,7 +36,12 @@ What this does:
 - applies a deterministic mobile style patch for the Android presentation
 - prefetches the exact glyph PBFs required by the style into `infra/tileserver/fonts/`
 - downloads the pinned Photon jar into `infra/data/search/photon/photon.jar`
-- downloads and extracts the official GraphHopper Denmark `1.x` Photon dump into `infra/data/search/photon/photon_data/`
+- downloads the official GraphHopper Denmark `1.x` Photon json dump and imports it into `infra/data/search/photon/photon_data/`
+
+Photon notes:
+
+- the first search bootstrap is slower because the local database is imported from the json dump
+- `zstd` must be available on the host for the Photon import step
 
 Recommended tuning knobs:
 
