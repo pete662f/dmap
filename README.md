@@ -1,6 +1,6 @@
 # dmap2
 
-Milestone 2 for a Denmark-first native Android map app backed by a self-hosted OpenMapTiles-compatible stack plus self-hosted place search.
+Milestone 2 for a Denmark-first native Android map app with detailed self-hosted Denmark tiles, low-resolution global browsing, and self-hosted Denmark place search.
 
 This repo contains:
 
@@ -11,13 +11,14 @@ This repo contains:
 ## What M2 includes
 
 - Self-hosted Denmark vector tiles built locally with Planetiler's OpenMapTiles profile
+- Self-hosted low-resolution world reference basemap layered under the Denmark detail tiles
 - Self-hosted OSM Liberty-based style, sprites, and glyphs with a deterministic mobile style patch
 - Self-hosted Photon search and reverse geocoding backend for Denmark
 - Native Android app with a polished map-first screen
 - Tasteful POI presentation from the vector tile style only
 - Runtime location permission flow without first-launch interruption
 - Styled blue dot / puck and a dedicated locate-me control
-- Denmark-first camera defaults, zoom bounds, and smoother recentering
+- Denmark-first camera defaults, unrestricted global browsing, and smoother recentering
 - Debounced typed search with readable result rows
 - Selected-place marker plus compact place card
 - Rendered POI tap selection plus exact-coordinate long-press pins
@@ -32,15 +33,15 @@ This repo contains:
 
 ## Quick start
 
-### 1. Bootstrap Denmark map data, self-hosted style assets, and Photon search data
+### 1. Bootstrap Denmark map data, self-hosted style assets, world reference assets, and Photon search data
 
 ```bash
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, generates a lightweight Natural Earth-derived world reference layer, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
 
-Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies a deterministic mobile tuning pass so the generated style is ready for the Android presentation.
+Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies deterministic mobile and world-reference patch steps so the generated style is ready for the Android presentation.
 
 Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
 

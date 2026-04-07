@@ -358,6 +358,102 @@ class MapViewModelCoordinateSelectionTest {
         assertEquals("Square", selectedPlace.place.categoryHint)
     }
 
+    @Test
+    fun `long press outside Denmark does not create a pin and shows info once`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val viewModel = createViewModel(FakeSearchService())
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 2.3522,
+            latitude = 48.8566,
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.searchUiState.selectedPlace)
+        assertEquals(
+            "Browsing is global; place details are available in Denmark only.",
+            viewModel.uiState.value.overlayMessage?.text,
+        )
+
+        val firstMessageId = viewModel.uiState.value.overlayMessage?.id
+        viewModel.dismissOverlayMessage(firstMessageId!!)
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = -0.1276,
+            latitude = 51.5072,
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.searchUiState.selectedPlace)
+        assertNull(viewModel.uiState.value.overlayMessage)
+    }
+
+    @Test
+    fun `poi tap outside Denmark leaves the current selection unchanged`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val viewModel = createViewModel(FakeSearchService())
+        val insideDenmarkResult = SearchResult(
+            place = PlaceSummary(
+                id = "search:inside",
+                title = "Aarhus Cathedral",
+                subtitle = "Store Torv 1, 8000 Aarhus C",
+                latitude = 56.1567,
+                longitude = 10.2108,
+                kind = PlaceKind.Poi,
+                categoryHint = "Cathedral",
+            ),
+        )
+        viewModel.selectSearchResult(insideDenmarkResult)
+
+        viewModel.selectRenderedPoi(
+            PlaceSummary(
+                id = "poi:outside",
+                title = "Eiffel Tower",
+                subtitle = null,
+                latitude = 48.8584,
+                longitude = 2.2945,
+                kind = PlaceKind.Poi,
+                categoryHint = "Landmark",
+            ),
+        )
+        advanceUntilIdle()
+
+        val selectedPlace = requireSelectedPlace(viewModel)
+        assertEquals("Aarhus Cathedral", selectedPlace.place.title)
+        assertEquals(
+            "Browsing is global; place details are available in Denmark only.",
+            viewModel.uiState.value.overlayMessage?.text,
+        )
+    }
+
+    @Test
+    fun `outside Denmark message replaces an active overlay`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val reverseResult = CompletableDeferred<SearchResult?>()
+        val searchService = FakeSearchService().apply {
+            reverseHandler = { _, _ -> reverseResult.await() }
+        }
+        val viewModel = createViewModel(searchService)
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 12.5683,
+            latitude = 55.6761,
+        )
+        runCurrent()
+        assertEquals("Looking up this spot…", viewModel.uiState.value.overlayMessage?.text)
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 2.3522,
+            latitude = 48.8566,
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "Browsing is global; place details are available in Denmark only.",
+            viewModel.uiState.value.overlayMessage?.text,
+        )
+
+        reverseResult.complete(null)
+        advanceUntilIdle()
+    }
+
     private fun createViewModel(searchService: SearchService): MapViewModel {
         return MapViewModel(
             searchService = searchService,
