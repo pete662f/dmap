@@ -11,8 +11,9 @@ WORLD_CITY_LIMIT = 180
 
 
 def load_geojson(cache_dir: Path, ref: str, filename: str) -> dict:
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cached_path = cache_dir / filename
+    ref_cache_dir = cache_dir / ref
+    ref_cache_dir.mkdir(parents=True, exist_ok=True)
+    cached_path = ref_cache_dir / filename
     if not cached_path.exists():
         url = f"https://raw.githubusercontent.com/nvkelso/natural-earth-vector/{ref}/geojson/{filename}"
         with urllib.request.urlopen(url) as response, cached_path.open("wb") as output:

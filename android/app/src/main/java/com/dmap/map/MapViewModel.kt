@@ -556,10 +556,6 @@ class MapViewModel(
     private fun showOutsideDenmarkMessage() {
         if (hasShownOutsideDenmarkMessage) return
         _uiState.update { state ->
-            if (state.overlayMessage != null) {
-                return@update state
-            }
-
             hasShownOutsideDenmarkMessage = true
             state.copy(
                 overlayMessage = newMessage(

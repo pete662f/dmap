@@ -424,6 +424,36 @@ class MapViewModelCoordinateSelectionTest {
         )
     }
 
+    @Test
+    fun `outside Denmark message replaces an active overlay`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val reverseResult = CompletableDeferred<SearchResult?>()
+        val searchService = FakeSearchService().apply {
+            reverseHandler = { _, _ -> reverseResult.await() }
+        }
+        val viewModel = createViewModel(searchService)
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 12.5683,
+            latitude = 55.6761,
+        )
+        runCurrent()
+        assertEquals("Looking up this spot…", viewModel.uiState.value.overlayMessage?.text)
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 2.3522,
+            latitude = 48.8566,
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "Browsing is global; place details are available in Denmark only.",
+            viewModel.uiState.value.overlayMessage?.text,
+        )
+
+        reverseResult.complete(null)
+        advanceUntilIdle()
+    }
+
     private fun createViewModel(searchService: SearchService): MapViewModel {
         return MapViewModel(
             searchService = searchService,
