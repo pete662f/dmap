@@ -15,10 +15,32 @@ check() {
   curl --fail --silent --show-error --location "${url}" > /dev/null
 }
 
+assert_style_contains() {
+  local style_url="$1"
+  local style_json
+
+  echo "==> validating ${style_url}"
+  style_json="$(curl --fail --silent --show-error --location "${style_url}")"
+
+  if [[ "${style_json}" != *'"dmap-world-land"'* ]]; then
+    echo "Style endpoint is missing the world fallback source." >&2
+    exit 1
+  fi
+
+  if [[ "${style_json}" != *'/files/world-reference/land.geojson"'* ]]; then
+    echo "Style endpoint is missing the served world land source." >&2
+    exit 1
+  fi
+}
+
 check "${MAP_BASE_URL}/styles/osm-liberty/style.json"
+assert_style_contains "${MAP_BASE_URL}/styles/osm-liberty/style.json"
 check "${MAP_BASE_URL}/styles/osm-liberty/sprite.json"
 check "${MAP_BASE_URL}/styles/osm-liberty/sprite.png"
 check "${MAP_BASE_URL}/fonts/Open%20Sans%20Regular/0-255.pbf"
+check "${MAP_BASE_URL}/files/world-reference/land.geojson"
+check "${MAP_BASE_URL}/files/world-reference/country-borders.geojson"
+check "${MAP_BASE_URL}/files/world-reference/major-cities.geojson"
 check "${MAP_BASE_URL}/data/openmaptiles.json"
 check "${MAP_BASE_URL}/data/openmaptiles/0/0/0.pbf"
 check "${SEARCH_BASE_URL}/status"

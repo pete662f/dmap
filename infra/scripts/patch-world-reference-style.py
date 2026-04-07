@@ -20,15 +20,15 @@ def main() -> int:
 
     style["sources"][f"{WORLD_REFERENCE_SOURCE_PREFIX}-land"] = {
         "type": "geojson",
-        "data": "../world-reference/land.geojson",
+        "data": "file://world-reference/land.geojson",
     }
     style["sources"][f"{WORLD_REFERENCE_SOURCE_PREFIX}-borders"] = {
         "type": "geojson",
-        "data": "../world-reference/country-borders.geojson",
+        "data": "file://world-reference/country-borders.geojson",
     }
     style["sources"][f"{WORLD_REFERENCE_SOURCE_PREFIX}-cities"] = {
         "type": "geojson",
-        "data": "../world-reference/major-cities.geojson",
+        "data": "file://world-reference/major-cities.geojson",
     }
 
     for layer in style["layers"]:

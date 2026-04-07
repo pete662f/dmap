@@ -40,7 +40,7 @@ data class MapPresentationConfig(
                     .zoom(6.15)
                     .build(),
                 cameraBounds = null,
-                minZoom = 5.1,
+                minZoom = 1.0,
                 maxZoom = 18.5,
                 recenterZoom = 15.4,
                 recenterDurationMs = 1200,

@@ -39,7 +39,7 @@ This repo contains:
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, generates a lightweight Natural Earth-derived world reference layer, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, generates a lightweight Natural Earth-derived world reference layer under TileServer's `/files` path, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
 
 Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies deterministic mobile and world-reference patch steps so the generated style is ready for the Android presentation.
 
@@ -71,6 +71,8 @@ Optional validation:
 ```bash
 ./infra/scripts/verify-backend.sh
 ```
+
+The backend verification now checks that the served style still includes the world fallback sources and that the low-resolution world-reference GeoJSON files are reachable from `/files/world-reference/`.
 
 ### 3. Run the Android app
 
@@ -157,6 +159,7 @@ The backend helper scripts use the same repo `.env` file:
 ## M2 place experience
 
 - The app opens directly into a polished Denmark map instead of immediately jumping to the user
+- The app still opens on Denmark first, but you can now zoom out to a true low-resolution global fallback view
 - POIs remain fully style-driven from the vector tile stack
 - Location permission is requested from the compact prompt or the locate control, not by interrupting first launch
 - The blue dot uses explicit MapLibre location component styling
@@ -165,11 +168,13 @@ The backend helper scripts use the same repo `.env` file:
 - Search results are normalized into readable titles and concise subtitles
 - Selecting a search result or tapping a visible rendered POI places a single selected-place marker and opens a compact place card immediately
 - Long-press drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate
+- Outside Denmark, the low-resolution world basemap remains browse-only and place detail interactions stay Denmark-scoped
 - Empty taps do not clear the current selection and do not snap to nearby POIs
 
 ## Backend endpoints
 
 - Style JSON: [http://localhost:8080/styles/osm-liberty/style.json](http://localhost:8080/styles/osm-liberty/style.json)
+- World land fallback: [http://localhost:8080/files/world-reference/land.geojson](http://localhost:8080/files/world-reference/land.geojson)
 - TileJSON: [http://localhost:8080/data/openmaptiles.json](http://localhost:8080/data/openmaptiles.json)
 - Photon status: [http://localhost:8081/status](http://localhost:8081/status)
 - Photon search: [http://localhost:8081/api?q=aarhus&limit=3](http://localhost:8081/api?q=aarhus&limit=3)

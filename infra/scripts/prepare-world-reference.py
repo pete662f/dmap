@@ -8,6 +8,7 @@ from typing import Optional
 
 
 WORLD_CITY_LIMIT = 180
+WORLD_COPY_LONGITUDE_OFFSETS = (-360.0, 0.0, 360.0)
 
 
 def load_geojson(cache_dir: Path, ref: str, filename: str) -> dict:
@@ -29,10 +30,40 @@ def compact_feature(feature: dict, properties: Optional[dict] = None) -> dict:
     }
 
 
+def shift_position(position: list, longitude_offset: float) -> list:
+    return [position[0] + longitude_offset, position[1], *position[2:]]
+
+
+def shift_coordinates(coordinates, longitude_offset: float):
+    if isinstance(coordinates[0], (int, float)):
+        return shift_position(coordinates, longitude_offset)
+    return [shift_coordinates(child, longitude_offset) for child in coordinates]
+
+
+def shifted_feature(feature: dict, longitude_offset: float) -> dict:
+    return {
+        "type": "Feature",
+        "properties": feature["properties"],
+        "geometry": {
+            "type": feature["geometry"]["type"],
+            "coordinates": shift_coordinates(feature["geometry"]["coordinates"], longitude_offset),
+        },
+    }
+
+
+def duplicate_world_copies(features: list[dict]) -> list[dict]:
+    duplicated = []
+    for longitude_offset in WORLD_COPY_LONGITUDE_OFFSETS:
+        for feature in features:
+            duplicated.append(shifted_feature(feature, longitude_offset))
+    return duplicated
+
+
 def prepare_land(land_geojson: dict) -> dict:
+    features = [compact_feature(feature) for feature in land_geojson["features"]]
     return {
         "type": "FeatureCollection",
-        "features": [compact_feature(feature) for feature in land_geojson["features"]],
+        "features": duplicate_world_copies(features),
     }
 
 
@@ -50,7 +81,7 @@ def prepare_borders(border_geojson: dict) -> dict:
                 },
             ),
         )
-    return {"type": "FeatureCollection", "features": features}
+    return {"type": "FeatureCollection", "features": duplicate_world_copies(features)}
 
 
 def prepare_cities(city_geojson: dict) -> dict:
@@ -91,7 +122,7 @@ def prepare_cities(city_geojson: dict) -> dict:
 
     return {
         "type": "FeatureCollection",
-        "features": selected[:WORLD_CITY_LIMIT],
+        "features": duplicate_world_copies(selected[:WORLD_CITY_LIMIT]),
     }
 
 

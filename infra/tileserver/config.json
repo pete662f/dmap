@@ -2,6 +2,7 @@
   "options": {
     "paths": {
       "root": "/data",
+      "files": "files",
       "fonts": "fonts",
       "styles": "styles"
     }

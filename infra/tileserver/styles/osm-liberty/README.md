@@ -19,6 +19,7 @@ The generated style is based on OSM Liberty but rewritten for fully self-hosted 
 - vector source -> `mbtiles://{openmaptiles}`
 - sprite -> local TileServer style folder
 - glyphs -> local TileServer fonts endpoint
+- world reference GeoJSON -> local TileServer files endpoint
 - external natural-earth raster source removed
 
 The matching glyph PBFs are prefetched into `../../fonts/` during bootstrap.

@@ -12,7 +12,8 @@ FONTS_RELEASE_ZIP="${CACHE_DIR}/openmaptiles-fonts-v2.0.zip"
 FONTS_RELEASE_DIR="${CACHE_DIR}/openmaptiles-fonts-v2.0"
 STYLE_OUT_DIR="${INFRA_DIR}/tileserver/styles/osm-liberty"
 WORLD_REFERENCE_CACHE_DIR="${CACHE_DIR}/world-reference"
-WORLD_REFERENCE_OUT_DIR="${INFRA_DIR}/tileserver/styles/world-reference"
+WORLD_REFERENCE_OUT_DIR="${INFRA_DIR}/tileserver/files/world-reference"
+WORLD_REFERENCE_LEGACY_DIR="${INFRA_DIR}/tileserver/styles/world-reference"
 FONTS_OUT_DIR="${INFRA_DIR}/tileserver/fonts"
 
 clone_or_checkout() {
@@ -79,8 +80,24 @@ python3 "${SCRIPT_DIR}/prepare-world-reference.py" \
   "${WORLD_REFERENCE_CACHE_DIR}" \
   "${WORLD_REFERENCE_OUT_DIR}"
 
+if [[ -d "${WORLD_REFERENCE_LEGACY_DIR}" ]]; then
+  rm -rf "${WORLD_REFERENCE_LEGACY_DIR}"
+fi
+
 echo "==> Layering world reference basemap into style.json"
 python3 "${SCRIPT_DIR}/patch-world-reference-style.py" "${STYLE_OUT_DIR}/style.json"
+
+python3 - "${STYLE_OUT_DIR}/style.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+style = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+land_source = style["sources"].get("dmap-world-land", {})
+
+if land_source.get("data") != "file://world-reference/land.geojson":
+    raise SystemExit("Generated style is missing the file-served world land source.")
+PY
 
 rm -rf "${FONTS_OUT_DIR:?}"/*
 
