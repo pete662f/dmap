@@ -68,7 +68,15 @@ Emulator defaults are already configured:
 - `http://10.0.2.2:8080` for the map backend
 - `http://10.0.2.2:8081` for the search backend
 
-For a physical device, create `android/local.properties` and point it at your machine’s LAN IP:
+For a physical device, set your Mac's LAN IP in the repo root `.env`:
+
+```dotenv
+DMAP_HOST_IP=192.168.0.195
+```
+
+Then rebuild and reinstall the app so the compiled Android `BuildConfig` picks up the new host.
+
+If you prefer Android-only overrides, you can still create `android/local.properties` and point it at your machine’s LAN IP:
 
 ```properties
 sdk.dir=/Users/your-user/Library/Android/sdk
@@ -82,11 +90,29 @@ Then run:
 ./infra/scripts/build-apk.sh
 ```
 
+The build now prints the compiled backend URLs after Gradle finishes. You can also verify them explicitly with:
+
+```bash
+./infra/scripts/verify-android-build-config.sh
+```
+
+Physical-device checklist:
+
+1. Set `DMAP_HOST_IP` in the repo root `.env`
+2. Start the backends with `./infra/scripts/up-backend.sh`
+3. Rebuild and reinstall the Android app
+4. Ensure the phone and Mac are on the same Wi-Fi or LAN
+5. If it still fails, open these URLs on the phone:
+   - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
+   - `http://<mac-ip>:8081/status`
+
+If the app UI still shows `Backend: http://10.0.2.2:8080`, the installed APK was built with emulator defaults and must be rebuilt after fixing the config.
+
 Or open [`android`](./android) in Android Studio and run the `app` configuration.
 
 A template lives at [`android/local.properties.example`](./android/local.properties.example).
 
-You can also set the backend URLs in the repo root `.env`. The Android build now reads:
+The repo root `.env` is the shared default source for Android builds and backend scripts. The Android build reads:
 
 - `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8082`
 - or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_ROUTING_BACKEND_URL`

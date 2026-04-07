@@ -14,6 +14,8 @@ val localProperties = Properties().apply {
     }
 }
 
+val repoRootDir = rootProject.projectDir.parentFile ?: rootProject.projectDir
+
 fun loadDotEnv(file: File): Map<String, String> {
     if (!file.exists()) {
         return emptyMap()
@@ -58,7 +60,7 @@ fun configuredValue(
 
 fun quoted(value: String): String = "\"${value}\""
 
-val dotEnv = loadDotEnv(rootProject.rootDir.resolve(".env"))
+val dotEnv = loadDotEnv(repoRootDir.resolve(".env"))
 val dmapHostIp = dotEnv["DMAP_HOST_IP"]?.takeIf { it.isNotBlank() }
 
 val mapBackendUrl = configuredValue(

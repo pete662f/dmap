@@ -94,7 +94,15 @@ Default:
 - Emulator: `http://10.0.2.2:8080`
 - Emulator search: `http://10.0.2.2:8081`
 
-For a physical device, create `android/local.properties`:
+For a physical device, set your Mac's LAN IP in the repo root `.env`:
+
+```dotenv
+DMAP_HOST_IP=192.168.0.195
+```
+
+This is the shared default source for the Android build and the backend helper scripts.
+
+If you want Android-only overrides, you can also create `android/local.properties`:
 
 ```properties
 sdk.dir=/Users/your-user/Library/Android/sdk
@@ -107,6 +115,24 @@ Build from CLI:
 ```bash
 ./infra/scripts/build-apk.sh
 ```
+
+After the build, confirm the compiled backend URLs before installing:
+
+```bash
+./infra/scripts/verify-android-build-config.sh
+```
+
+Physical-device flow:
+
+1. Set `DMAP_HOST_IP` in the repo root `.env`
+2. Start the backends with `./infra/scripts/up-backend.sh`
+3. Rebuild and reinstall the Android app
+4. Ensure the phone and Mac are on the same Wi-Fi or LAN
+5. If the app still cannot connect, test these URLs directly from the phone browser:
+   - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
+   - `http://<mac-ip>:8081/status`
+
+If the app UI shows `Backend: http://10.0.2.2:8080`, the installed APK was compiled with emulator defaults and needs to be rebuilt after fixing the config.
 
 The Android build can also read backend settings from the repo root `.env`:
 

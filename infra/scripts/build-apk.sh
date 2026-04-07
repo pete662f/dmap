@@ -191,6 +191,14 @@ if [[ ! -f "${APK_PATH}" ]]; then
   exit 1
 fi
 
+VERIFY_BUILD_TYPE="debug"
+if [[ "${BUILD_TYPE}" == "release" ]]; then
+  VERIFY_BUILD_TYPE="release"
+fi
+
+echo
+"${REPO_DIR}/infra/scripts/verify-android-build-config.sh" "${VERIFY_BUILD_TYPE}"
+
 echo
 echo "APK built successfully:"
 echo "${APK_PATH}"
