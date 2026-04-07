@@ -78,6 +78,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -196,14 +197,24 @@ fun MapScreen(
             true
         }
 
+        val moveListener = object : MapLibreMap.OnMoveListener {
+            override fun onMoveBegin(detector: MoveGestureDetector) {
+                viewModel.updateCenteredOnUser(false)
+            }
+            override fun onMove(detector: MoveGestureDetector) {}
+            override fun onMoveEnd(detector: MoveGestureDetector) {}
+        }
+
         map.addOnCameraIdleListener(cameraListener)
         map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
+        map.addOnMoveListener(moveListener)
 
         onDispose {
             map.removeOnCameraIdleListener(cameraListener)
             map.removeOnMapClickListener(clickListener)
             map.removeOnMapLongClickListener(longClickListener)
+            map.removeOnMoveListener(moveListener)
         }
     }
 

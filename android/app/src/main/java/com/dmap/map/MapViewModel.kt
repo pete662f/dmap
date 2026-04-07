@@ -155,6 +155,7 @@ class MapViewModel(
                 LocateMeResult.Centered -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Available,
                     overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
+                    isCenteredOnUser = true,
                 )
                 LocateMeResult.Unavailable -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Unavailable,
@@ -216,6 +217,7 @@ class MapViewModel(
                     ),
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+                isCenteredOnUser = false,
             )
         }
     }
@@ -239,6 +241,7 @@ class MapViewModel(
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+                isCenteredOnUser = false,
             )
         }
 
@@ -322,6 +325,7 @@ class MapViewModel(
                     text = "Looking up this spot…",
                     autoDismissMillis = null,
                 ),
+                isCenteredOnUser = false,
             )
         }
 
