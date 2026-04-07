@@ -15,6 +15,11 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 
+data class UserLocationSample(
+    val latitude: Double,
+    val longitude: Double,
+)
+
 class LocationController(
     private val context: Context,
 ) {
@@ -86,6 +91,21 @@ class LocationController(
         }
     }
 
+    fun currentUserLocation(mapLibreMap: MapLibreMap?): UserLocationSample? {
+        if (!hasLocationPermission() || mapLibreMap == null) return null
+
+        val locationComponent = mapLibreMap.locationComponent
+        if (!locationComponent.isLocationComponentActivated || !locationComponent.isLocationComponentEnabled) {
+            return null
+        }
+
+        val lastKnownLocation = locationComponent.lastKnownLocation ?: return null
+        return UserLocationSample(
+            latitude = lastKnownLocation.latitude,
+            longitude = lastKnownLocation.longitude,
+        )
+    }
+
     fun recenterOnUser(
         mapLibreMap: MapLibreMap,
         zoom: Double,
@@ -98,7 +118,7 @@ class LocationController(
             return LocateMeResult.Unavailable
         }
 
-        val lastKnownLocation = locationComponent.lastKnownLocation ?: return LocateMeResult.WaitingForFix
+        val lastKnownLocation = currentUserLocation(mapLibreMap) ?: return LocateMeResult.WaitingForFix
         mapLibreMap.animateCamera(
             CameraUpdateFactory.newLatLngZoom(
                 LatLng(lastKnownLocation.latitude, lastKnownLocation.longitude),

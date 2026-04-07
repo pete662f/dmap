@@ -37,6 +37,10 @@ class MapViewModel(
 ) : ViewModel() {
     private var nextMessageId = 1L
     private var nextSelectionId = 1L
+    private var latestCameraLatitude: Double? = null
+    private var latestCameraLongitude: Double? = null
+    private var latestUserLatitude: Double? = null
+    private var latestUserLongitude: Double? = null
 
     private val searchQuery = MutableStateFlow("")
     private val searchBias = MutableStateFlow<SearchBias?>(null)
@@ -60,6 +64,9 @@ class MapViewModel(
     }
 
     fun setLocationPermission(granted: Boolean) {
+        if (!granted) {
+            clearUserLocationSample()
+        }
         _uiState.update { state ->
             state.copy(
                 locationPermissionState = if (granted) {
@@ -77,6 +84,7 @@ class MapViewModel(
                     LocationAvailabilityState.Idle
                 },
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
+                isCenteredOnUser = if (granted) state.isCenteredOnUser else false,
             )
         }
     }
@@ -155,7 +163,6 @@ class MapViewModel(
                 LocateMeResult.Centered -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Available,
                     overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
-                    isCenteredOnUser = true,
                 )
                 LocateMeResult.Unavailable -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Unavailable,
@@ -168,10 +175,6 @@ class MapViewModel(
                 )
             }
         }
-    }
-
-    fun onUserPannedMap() {
-        _uiState.update { it.copy(isCenteredOnUser = false) }
     }
 
     fun updateSearchQuery(query: String) {
@@ -188,16 +191,45 @@ class MapViewModel(
         }
     }
 
-    fun updateSearchBias(
+    fun onCameraIdle(
         latitude: Double,
         longitude: Double,
         zoom: Double,
     ) {
+        latestCameraLatitude = latitude
+        latestCameraLongitude = longitude
         searchBias.value = SearchBias(
             latitude = latitude,
             longitude = longitude,
             zoom = zoom.toInt(),
         )
+        recomputeCenteredOnUser()
+    }
+
+    fun onUserLocationSample(
+        latitude: Double,
+        longitude: Double,
+    ) {
+        latestUserLatitude = latitude
+        latestUserLongitude = longitude
+        _uiState.update { state ->
+            state.copy(
+                locationAvailabilityState = LocationAvailabilityState.Available,
+                overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
+            )
+        }
+        recomputeCenteredOnUser()
+    }
+
+    fun onUserLocationUnavailable() {
+        clearUserLocationSample()
+        _uiState.update { state ->
+            if (!state.isCenteredOnUser) {
+                state
+            } else {
+                state.copy(isCenteredOnUser = false)
+            }
+        }
     }
 
     fun selectSearchResult(result: SearchResult) {
@@ -217,7 +249,6 @@ class MapViewModel(
                     ),
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
-                isCenteredOnUser = false,
             )
         }
     }
@@ -241,7 +272,6 @@ class MapViewModel(
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
-                isCenteredOnUser = false,
             )
         }
 
@@ -319,7 +349,6 @@ class MapViewModel(
                     selectedPlace = initialSelection,
                     isEnrichingPlace = true,
                 ),
-                isCenteredOnUser = false,
                 overlayMessage = newMessage(
                     source = MapOverlaySource.Search,
                     tone = MapOverlayTone.Info,
@@ -540,6 +569,43 @@ class MapViewModel(
             text = text,
             autoDismissMillis = autoDismissMillis,
         )
+    }
+
+    private fun clearUserLocationSample() {
+        latestUserLatitude = null
+        latestUserLongitude = null
+    }
+
+    private fun recomputeCenteredOnUser() {
+        val cameraLatitude = latestCameraLatitude
+        val cameraLongitude = latestCameraLongitude
+        val userLatitude = latestUserLatitude
+        val userLongitude = latestUserLongitude
+
+        val isCenteredOnUser = if (
+            cameraLatitude != null &&
+            cameraLongitude != null &&
+            userLatitude != null &&
+            userLongitude != null
+        ) {
+            MapCenteringEvaluator.evaluate(
+                wasCenteredOnUser = _uiState.value.isCenteredOnUser,
+                cameraLatitude = cameraLatitude,
+                cameraLongitude = cameraLongitude,
+                userLatitude = userLatitude,
+                userLongitude = userLongitude,
+            )
+        } else {
+            false
+        }
+
+        _uiState.update { state ->
+            if (state.isCenteredOnUser == isCenteredOnUser) {
+                state
+            } else {
+                state.copy(isCenteredOnUser = isCenteredOnUser)
+            }
+        }
     }
 
     companion object {

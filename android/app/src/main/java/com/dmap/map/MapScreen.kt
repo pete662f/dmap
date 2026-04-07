@@ -71,6 +71,7 @@ import com.dmap.app.AppContainer
 import com.dmap.location.LocationAvailabilityState
 import com.dmap.location.LocationPermissionState
 import com.dmap.location.LocateMeResult
+import com.dmap.location.UserLocationSample
 import com.dmap.place.SelectedPlace
 import com.dmap.place.SelectedPlaceType
 import com.dmap.place.SearchResult
@@ -78,7 +79,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -103,6 +103,22 @@ fun MapScreen(
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var currentStyle by remember { mutableStateOf<Style?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
+    val syncLocationState: (MapLibreMap) -> Unit = remember(viewModel, appContainer.locationController) {
+        { map ->
+            viewModel.setLocationAvailability(
+                appContainer.locationController.locationAvailability(map),
+            )
+            val currentUserLocation: UserLocationSample? = appContainer.locationController.currentUserLocation(map)
+            if (currentUserLocation != null) {
+                viewModel.onUserLocationSample(
+                    latitude = currentUserLocation.latitude,
+                    longitude = currentUserLocation.longitude,
+                )
+            } else {
+                viewModel.onUserLocationUnavailable()
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -113,9 +129,7 @@ fun MapScreen(
             val style = currentStyle
             if (map != null && style != null) {
                 appContainer.locationController.enableLocation(map, style)
-                viewModel.setLocationAvailability(
-                    appContainer.locationController.locationAvailability(map),
-                )
+                syncLocationState(map)
             }
         }
     }
@@ -145,7 +159,7 @@ fun MapScreen(
             map.setMaxZoomPreference(mapPresentation.maxZoom)
             map.setLatLngBoundsForCameraTarget(mapPresentation.cameraBounds)
             map.cameraPosition = mapPresentation.defaultCamera
-            viewModel.updateSearchBias(
+            viewModel.onCameraIdle(
                 latitude = initialTarget.latitude,
                 longitude = initialTarget.longitude,
                 zoom = mapPresentation.defaultCamera.zoom,
@@ -159,7 +173,7 @@ fun MapScreen(
         val cameraListener = MapLibreMap.OnCameraIdleListener {
             val camera = map.cameraPosition
             val target = camera.target ?: return@OnCameraIdleListener
-            viewModel.updateSearchBias(
+            viewModel.onCameraIdle(
                 latitude = target.latitude,
                 longitude = target.longitude,
                 zoom = camera.zoom,
@@ -184,24 +198,14 @@ fun MapScreen(
             true
         }
 
-        val moveListener = object : MapLibreMap.OnMoveListener {
-            override fun onMoveBegin(detector: MoveGestureDetector) {
-                viewModel.onUserPannedMap()
-            }
-            override fun onMove(detector: MoveGestureDetector) {}
-            override fun onMoveEnd(detector: MoveGestureDetector) {}
-        }
-
         map.addOnCameraIdleListener(cameraListener)
         map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
-        map.addOnMoveListener(moveListener)
 
         onDispose {
             map.removeOnCameraIdleListener(cameraListener)
             map.removeOnMapClickListener(clickListener)
             map.removeOnMapLongClickListener(longClickListener)
-            map.removeOnMoveListener(moveListener)
         }
     }
 
@@ -214,9 +218,7 @@ fun MapScreen(
             viewModel.onStyleLoaded()
             if (uiState.locationPermissionState == LocationPermissionState.Granted) {
                 appContainer.locationController.enableLocation(map, style)
-                viewModel.setLocationAvailability(
-                    appContainer.locationController.locationAvailability(map),
-                )
+                syncLocationState(map)
             }
         }
     }
@@ -226,9 +228,7 @@ fun MapScreen(
         val style = currentStyle ?: return@LaunchedEffect
         if (uiState.locationPermissionState == LocationPermissionState.Granted) {
             appContainer.locationController.enableLocation(map, style)
-            viewModel.setLocationAvailability(
-                appContainer.locationController.locationAvailability(map),
-            )
+            syncLocationState(map)
         }
     }
 
@@ -239,9 +239,7 @@ fun MapScreen(
         }
 
         while (isActive) {
-            viewModel.setLocationAvailability(
-                appContainer.locationController.locationAvailability(map),
-            )
+            syncLocationState(map)
             delay(1_500L)
         }
     }
