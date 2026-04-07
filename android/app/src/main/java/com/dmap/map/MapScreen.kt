@@ -3,6 +3,13 @@ package com.dmap.map
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -45,6 +53,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -328,6 +337,7 @@ fun MapScreen(
         selectedPlace?.let { place ->
             SelectedPlaceCard(
                 selectedPlace = place,
+                isEnrichingPlace = uiState.searchUiState.isEnrichingPlace,
                 onClear = viewModel::clearSelectedPlace,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -535,6 +545,7 @@ private fun SearchResultRow(
 @Composable
 private fun SelectedPlaceCard(
     selectedPlace: SelectedPlace,
+    isEnrichingPlace: Boolean,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -558,6 +569,7 @@ private fun SelectedPlaceCard(
                 titleStyle = MaterialTheme.typography.titleMedium,
                 showCoordinates = selectedPlace.type == SelectedPlaceType.CoordinatePin &&
                     place.title == "Dropped pin",
+                isLoading = isEnrichingPlace,
             )
             IconButton(onClick = onClear) {
                 Icon(
@@ -574,6 +586,7 @@ private fun PlaceSummaryText(
     place: com.dmap.place.PlaceSummary,
     titleStyle: TextStyle,
     showCoordinates: Boolean,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -592,9 +605,11 @@ private fun PlaceSummaryText(
             style = titleStyle,
             fontWeight = FontWeight.SemiBold,
         )
-        place.subtitle?.let { subtitle ->
+        if (isLoading && place.subtitle == null) {
+            TextLinePlaceholder()
+        } else if (place.subtitle != null) {
             Text(
-                text = subtitle,
+                text = place.subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -607,6 +622,32 @@ private fun PlaceSummaryText(
             )
         }
     }
+}
+
+@Composable
+private fun TextLinePlaceholder() {
+    val lineHeightDp = with(LocalDensity.current) {
+        MaterialTheme.typography.bodySmall.lineHeight.toDp()
+    }
+    val infiniteTransition = rememberInfiniteTransition(label = "placeholder")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.22f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "placeholderAlpha",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.6f)
+            .height(lineHeightDp)
+            .background(
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                shape = RoundedCornerShape(4.dp),
+            ),
+    )
 }
 
 @Composable

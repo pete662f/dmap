@@ -232,6 +232,7 @@ class MapViewModel(
                         type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.PoiTap,
                     ),
+                    isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
             )
@@ -257,7 +258,7 @@ class MapViewModel(
                     kind = if (place.kind == PlaceKind.Unknown) labelSource.kind else place.kind,
                     categoryHint = place.categoryHint ?: labelSource.categoryHint,
                 )
-            } ?: return@launch
+            }
 
             _uiState.update { state ->
                 val currentSelection = state.searchUiState.selectedPlace
@@ -270,7 +271,12 @@ class MapViewModel(
 
                 state.copy(
                     searchUiState = state.searchUiState.copy(
-                        selectedPlace = currentSelection.copy(place = enrichedPlace),
+                        selectedPlace = if (enrichedPlace != null) {
+                            currentSelection.copy(place = enrichedPlace)
+                        } else {
+                            currentSelection
+                        },
+                        isEnrichingPlace = false,
                     ),
                 )
             }
@@ -280,7 +286,10 @@ class MapViewModel(
     fun clearSelectedPlace() {
         _uiState.update { state ->
             state.copy(
-                searchUiState = state.searchUiState.copy(selectedPlace = null),
+                searchUiState = state.searchUiState.copy(
+                    selectedPlace = null,
+                    isEnrichingPlace = false,
+                ),
             )
         }
     }
@@ -301,6 +310,7 @@ class MapViewModel(
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     selectedPlace = initialSelection,
+                    isEnrichingPlace = true,
                 ),
                 overlayMessage = newMessage(
                     source = MapOverlaySource.Search,
@@ -386,6 +396,7 @@ class MapViewModel(
                             type = SelectedPlaceType.CoordinatePin,
                             origin = SelectedPlaceOrigin.LongPress,
                         ),
+                        isEnrichingPlace = false,
                     ),
                     overlayMessage = selection.second
                         ?: state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },

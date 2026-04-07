@@ -16,5 +16,6 @@ data class SearchUiState(
     val status: SearchStatus = SearchStatus.Idle,
     val results: List<SearchResult> = emptyList(),
     val selectedPlace: SelectedPlace? = null,
+    val isEnrichingPlace: Boolean = false,
     val errorMessage: String? = null,
 )
