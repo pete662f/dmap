@@ -20,4 +20,5 @@ data class MapUiState(
     val backendMessage: String? = null,
     val reloadToken: Int = 0,
     val overlayMessage: MapOverlayMessage? = null,
+    val isCenteredOnUser: Boolean = false,
 )

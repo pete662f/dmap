@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -31,7 +32,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +78,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -183,14 +184,24 @@ fun MapScreen(
             true
         }
 
+        val moveListener = object : MapLibreMap.OnMoveListener {
+            override fun onMoveBegin(detector: MoveGestureDetector) {
+                viewModel.onUserPannedMap()
+            }
+            override fun onMove(detector: MoveGestureDetector) {}
+            override fun onMoveEnd(detector: MoveGestureDetector) {}
+        }
+
         map.addOnCameraIdleListener(cameraListener)
         map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
+        map.addOnMoveListener(moveListener)
 
         onDispose {
             map.removeOnCameraIdleListener(cameraListener)
             map.removeOnMapClickListener(clickListener)
             map.removeOnMapLongClickListener(longClickListener)
+            map.removeOnMoveListener(moveListener)
         }
     }
 
@@ -269,9 +280,16 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
+        val locateButtonBottom by animateDpAsState(
+            targetValue = if (selectedPlace != null) 116.dp else 16.dp,
+            animationSpec = tween(durationMillis = 250),
+            label = "locateButtonBottom",
+        )
+
         LocateMeButton(
             enabled = uiState.backendState != MapBackendState.Unavailable,
             active = uiState.locationAvailabilityState == LocationAvailabilityState.Available,
+            isCenteredOnUser = uiState.isCenteredOnUser,
             onClick = {
                 val map = mapLibreMap ?: return@LocateMeButton
                 when (
@@ -292,7 +310,7 @@ fun MapScreen(
                 .navigationBarsPadding()
                 .padding(
                     end = 16.dp,
-                    bottom = if (selectedPlace != null) 156.dp else 16.dp,
+                    bottom = locateButtonBottom,
                 ),
         )
 
@@ -654,26 +672,31 @@ private fun TextLinePlaceholder() {
 private fun LocateMeButton(
     enabled: Boolean,
     active: Boolean,
+    isCenteredOnUser: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FilledIconButton(
+    Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier
-            .size(56.dp)
-            .shadow(12.dp, CircleShape),
+        modifier = modifier.size(48.dp),
         shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp,
     ) {
-        Icon(
-            imageVector = ImageVector.vectorResource(R.drawable.ic_locate),
-            contentDescription = "Locate me",
-            tint = if (active) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_locate),
+                contentDescription = "Locate me",
+                tint = when {
+                    isCenteredOnUser -> Color(0xFF9E9E9E)
+                    active -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.size(24.dp),
+            )
+        }
     }
 }
 

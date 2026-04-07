@@ -155,6 +155,7 @@ class MapViewModel(
                 LocateMeResult.Centered -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Available,
                     overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
+                    isCenteredOnUser = true,
                 )
                 LocateMeResult.Unavailable -> state.copy(
                     locationAvailabilityState = LocationAvailabilityState.Unavailable,
@@ -167,6 +168,10 @@ class MapViewModel(
                 )
             }
         }
+    }
+
+    fun onUserPannedMap() {
+        _uiState.update { it.copy(isCenteredOnUser = false) }
     }
 
     fun updateSearchQuery(query: String) {
@@ -212,6 +217,7 @@ class MapViewModel(
                     ),
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+                isCenteredOnUser = false,
             )
         }
     }
@@ -235,6 +241,7 @@ class MapViewModel(
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
+                isCenteredOnUser = false,
             )
         }
 
@@ -312,6 +319,7 @@ class MapViewModel(
                     selectedPlace = initialSelection,
                     isEnrichingPlace = true,
                 ),
+                isCenteredOnUser = false,
                 overlayMessage = newMessage(
                     source = MapOverlaySource.Search,
                     tone = MapOverlayTone.Info,
