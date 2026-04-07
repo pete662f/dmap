@@ -17,10 +17,29 @@ services:
     environment:
       PHOTON_CORS_MODE: any
       PHOTON_DEFAULT_LANGUAGE: da
+      PHOTON_JAVA_XMS: 1g
       PHOTON_JAVA_XMX: 2g
+      PHOTON_JAVA_EXTRA_FLAGS: --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED
       PHOTON_MAX_RESULTS: 8
       PHOTON_MAX_REVERSE_RESULTS: 3
       PHOTON_QUERY_TIMEOUT: 4
     volumes:
-      - ./data/search/photon:/srv/photon
+      - ./data/search/photon/photon.jar:/srv/photon/photon.jar:ro
+      - photon_data:/srv/photon/photon_data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -lc 'exec 3<>/dev/tcp/127.0.0.1/2322 &&
+          printf "GET /status HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 &&
+          grep -q "200 OK" <&3'
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
     restart: unless-stopped
+
+volumes:
+  photon_data:
+    name: photon_data
+    external: true
