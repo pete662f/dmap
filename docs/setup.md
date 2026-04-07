@@ -37,11 +37,13 @@ What this does:
 - prefetches the exact glyph PBFs required by the style into `infra/tileserver/fonts/`
 - downloads the pinned Photon jar into `infra/data/search/photon/photon.jar`
 - downloads the official GraphHopper Denmark `1.x` Photon json dump and imports it into `infra/data/search/photon/photon_data/`
+- writes `infra/data/search/photon/.dataset-version` so runtime sync can detect when the imported dataset changed
 
 Photon notes:
 
 - the first search bootstrap is slower because the local database is imported from the json dump
 - `zstd` must be available on the host for the Photon import step
+- the imported host-side Photon data is the source artifact, not the live runtime index
 
 Recommended tuning knobs:
 
@@ -69,6 +71,16 @@ You can still generate the MBTiles on another machine and install it here if you
 ./infra/scripts/up-backend.sh
 ```
 
+Before `docker compose up`, the startup script now syncs the host-side Photon dataset into a Docker-managed `photon_data` volume. That keeps the live OpenSearch index off the macOS bind mount while leaving the jar and imported source artifacts under `infra/data/search/photon/`.
+
+Photon runtime defaults:
+
+- `PHOTON_JAVA_XMS=1g`
+- `PHOTON_JAVA_XMX=2g`
+- `PHOTON_JAVA_EXTRA_FLAGS=--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`
+
+TileServer remains bind-mounted in this pass because it was already performing well enough that the optimization work targeted Photon instead.
+
 Useful endpoints:
 
 - `http://localhost:8080/styles/osm-liberty/style.json`
@@ -84,6 +96,26 @@ Useful endpoints:
 
 The verification script now checks both the tile backend and the Photon search backend.
 When no explicit URLs are passed, it resolves backend URLs from the repo root `.env`.
+
+### Benchmark the backend
+
+```bash
+./infra/scripts/benchmark-backend.sh
+```
+
+Default scenarios:
+
+- Photon `/status` warm run
+- Photon `/api?q=aarhus&limit=3` warm runs at concurrencies `1`, `4`, and `8`
+- Photon reverse-geocode warm run
+- tile warm run
+- Photon cold first-query run after a container restart
+
+Useful overrides:
+
+- `./infra/scripts/benchmark-backend.sh --mode warm`
+- `./infra/scripts/benchmark-backend.sh --mode cold`
+- `./infra/scripts/benchmark-backend.sh --requests 100 --concurrency 1,2,4`
 
 ## Android setup
 

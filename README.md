@@ -44,11 +44,21 @@ Glyphs are prefetched into the repo during bootstrap so the app does not depend 
 
 Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
 
+Photon runtime now uses a Docker-managed `photon_data` volume for the live index. The imported host-side artifacts under `infra/data/search/photon/` remain the source dataset, and `./infra/scripts/up-backend.sh` syncs that dataset into the runtime volume automatically before `docker compose up`.
+
 ### 2. Start the local backends
 
 ```bash
 ./infra/scripts/up-backend.sh
 ```
+
+The Photon container now starts with:
+
+- `PHOTON_JAVA_XMS=1g`
+- `PHOTON_JAVA_XMX=2g`
+- `PHOTON_JAVA_EXTRA_FLAGS=--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`
+
+TileServer is intentionally unchanged in this pass because its local latency was already low enough that Photon was the meaningful backend bottleneck.
 
 The local services are served on:
 
@@ -139,6 +149,7 @@ The backend helper scripts use the same repo `.env` file:
 - Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`
 - Start backends: `./infra/scripts/up-backend.sh`
 - Verify map + search backends: `./infra/scripts/verify-backend.sh`
+- Benchmark map + search backends: `./infra/scripts/benchmark-backend.sh`
 - Build Android debug APK: `./infra/scripts/build-apk.sh`
 - Build Android release APK: `./infra/scripts/build-apk.sh --release`
 
@@ -170,6 +181,7 @@ Apple Silicon is supported for both map and search in M2.
 - Tile generation uses `ghcr.io/onthegomap/planetiler:0.10.2`, which publishes `linux/arm64`
 - Tile serving uses `maptiler/tileserver-gl-light:v5.5.0`, which also publishes `linux/arm64`
 - Photon runs in a small Java 21 container and uses the official GraphHopper Denmark `1.x` dump
+- Photon keeps its imported source data on the host but serves the live OpenSearch index from a Docker-managed volume for better Docker Desktop performance
 - The Android app contract is unchanged: it still loads fully self-hosted style, tiles, and search URLs
 
 ## Docs

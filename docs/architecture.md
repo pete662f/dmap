@@ -22,6 +22,7 @@ OSM Denmark extract
 
 Photon Denmark dump
   -> self-hosted Photon service
+  -> volume-backed runtime index
   -> forward search + reverse geocoding
   -> Android app
 ```
@@ -36,6 +37,15 @@ Photon Denmark dump
 - `infra/scripts/patch-mobile-style.py` applies the M1 mobile cartography pass after the base style rewrite
 - Glyph PBFs are served from `infra/tileserver/fonts/` after bootstrap prefetches the exact font stacks used by the style
 - The output remains OpenMapTiles-schema-compatible, which preserves a clean path for later style customization and POI interaction work
+- TileServer remains on the original bind-mounted layout because it was not the latency bottleneck in this optimization pass
+
+### Search backend
+
+- `infra/scripts/bootstrap-photon.sh` imports the Photon dump into host-managed source artifacts under `infra/data/search/photon/`
+- `infra/scripts/sync-photon-volume.sh` copies `photon_data/` plus `.dataset-version` into the Docker-managed `photon_data` volume when the dataset changed
+- `infra/scripts/up-backend.sh` runs the sync step before `docker compose up`
+- Photon serves its live OpenSearch index from the volume-backed `photon_data` path, while `photon.jar` remains bind-mounted from the host
+- Photon starts with explicit `Xms`, `Xmx`, and Vector API JVM flags so first-burst search latency is less dependent on heap growth and default module loading
 
 ### Android app
 
@@ -55,7 +65,7 @@ Photon Denmark dump
 - App seam: `SearchService`
 - Infra seam: `infra/services/photon/`
 - Planned future base URL: `http://localhost:8081`
-- Future improvements can add ranking tweaks, recents/history, or a different importer without changing the Android UI layer
+- Future improvements can add ranking tweaks, recents/history, more caching, or a different importer without changing the Android UI layer
 
 ### Routing
 

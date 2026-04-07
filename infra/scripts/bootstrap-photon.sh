@@ -11,6 +11,7 @@ source "${INFRA_DIR}/versions.env"
 CACHE_DIR="${INFRA_DIR}/.cache/photon"
 ARTIFACTS_DIR="${CACHE_DIR}/artifacts"
 OUTPUT_DIR="${INFRA_DIR}/data/search/photon"
+DATASET_MARKER_FILE="${OUTPUT_DIR}/.dataset-version"
 
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
 NO_REFRESH="${NO_REFRESH:-0}"
@@ -35,6 +36,16 @@ download_if_needed() {
   curl --fail --silent --show-error --location "${url}" --output "${output}"
 }
 
+remove_if_symlink() {
+  local path="$1"
+  local description="$2"
+
+  if [[ -L "${path}" ]]; then
+    echo "==> Removing symlinked ${description} at ${path}"
+    unlink "${path}"
+  fi
+}
+
 checksum_value() {
   local checksum_file="$1"
   awk '{print $1}' "${checksum_file}"
@@ -55,7 +66,7 @@ verify_md5() {
 }
 
 if [[ "${FORCE_REBUILD}" == "1" ]]; then
-  rm -rf "${OUTPUT_DIR}/photon_data" "${OUTPUT_DIR}/photon.jar"
+  rm -rf "${OUTPUT_DIR}/photon_data" "${OUTPUT_DIR}/photon.jar" "${DATASET_MARKER_FILE}"
 fi
 
 jar_target="${OUTPUT_DIR}/photon.jar"
@@ -64,8 +75,13 @@ db_target="${OUTPUT_DIR}/photon_data"
 dump_file="${ARTIFACTS_DIR}/${PHOTON_DUMP_FILE}"
 dump_checksum_file="${ARTIFACTS_DIR}/${PHOTON_DUMP_FILE}.md5"
 
+remove_if_symlink "${jar_target}" "Photon jar"
+remove_if_symlink "${db_target}" "Photon data directory"
+remove_if_symlink "${DATASET_MARKER_FILE}" "Photon dataset marker"
+
 echo "==> Preparing Photon ${PHOTON_VERSION}"
 download_if_needed "${PHOTON_JAR_URL}" "${jar_target}"
+download_if_needed "${PHOTON_DUMP_CHECKSUM_URL}" "${dump_checksum_file}"
 
 if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   if ! command -v zstd >/dev/null 2>&1; then
@@ -74,7 +90,6 @@ if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   fi
 
   download_if_needed "${PHOTON_DUMP_URL}" "${dump_file}"
-  download_if_needed "${PHOTON_DUMP_CHECKSUM_URL}" "${dump_checksum_file}"
 
   if ! verify_md5 "${dump_file}" "$(checksum_value "${dump_checksum_file}")"; then
     echo "Photon Denmark json dump checksum verification failed." >&2
@@ -96,6 +111,13 @@ if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   fi
 fi
 
+cat > "${DATASET_MARKER_FILE}" <<EOF
+photon_version=${PHOTON_VERSION}
+dump_series=${PHOTON_DUMP_SERIES}
+dump_md5=$(checksum_value "${dump_checksum_file}")
+EOF
+
 echo "==> Photon artifacts ready"
 echo "Jar: ${jar_target}"
 echo "Data: ${db_target}"
+echo "Dataset marker: ${DATASET_MARKER_FILE}"
