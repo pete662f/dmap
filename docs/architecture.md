@@ -41,8 +41,9 @@ Photon Denmark dump
 
 - `MapBackendConfig` owns backend URLs
 - `AppContainer` wires the current config plus future service interfaces
-- `MapPresentationConfig` owns Denmark-first camera defaults and zoom bounds
+- `MapPresentationConfig` owns Denmark-first camera defaults, global browsing bounds policy, and zoom limits
 - `MapViewModel` owns map screen UI state, lightweight overlay messages, and backend failure state
+- `DenmarkCoverage` owns the shared Denmark interaction envelope used to keep global browsing read-only outside local detail/search coverage
 - `LocationController` isolates MapLibre location enablement, location availability checks, and typed recenter results
 - `SearchService` is now a real service boundary for forward search and reverse geocoding
 - `SearchUiState` owns query text, loading/error/empty states, results, and the selected place
@@ -66,5 +67,7 @@ Photon Denmark dump
 ## Why OSM Liberty + Photon
 
 OSM Liberty remains the map base because it already exposes POIs and feels closer to a consumer map product than a stripped-down developer style. The repo keeps that base but adds a deterministic mobile-specific patch step so Android readability improvements do not turn into hand-edited generated-style drift.
+
+The global fallback layer is intentionally lighter. A Natural Earth-derived reference basemap provides land, borders, and major city labels outside Denmark so the map can pan horizontally across the world without committing the repo to a planet-scale OpenMapTiles pipeline.
 
 Photon is the M2 search backend because it gives a practical Denmark-only self-hosted forward-search and reverse-geocoding path with a published Denmark dump. That keeps the milestone small and reliable while preserving a clean future path toward richer ranking or a custom import pipeline.

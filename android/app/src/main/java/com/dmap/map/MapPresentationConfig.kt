@@ -7,7 +7,7 @@ import com.dmap.place.PlaceKind
 
 data class MapPresentationConfig(
     val defaultCamera: CameraPosition,
-    val cameraBounds: LatLngBounds,
+    val cameraBounds: LatLngBounds?,
     val minZoom: Double,
     val maxZoom: Double,
     val recenterZoom: Double,
@@ -39,12 +39,7 @@ data class MapPresentationConfig(
                     .target(defaultCenter)
                     .zoom(6.15)
                     .build(),
-                cameraBounds = LatLngBounds.from(
-                    58.15,
-                    15.9,
-                    54.25,
-                    7.5,
-                ),
+                cameraBounds = null,
                 minZoom = 5.1,
                 maxZoom = 18.5,
                 recenterZoom = 15.4,

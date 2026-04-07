@@ -37,6 +37,7 @@ class MapViewModel(
 ) : ViewModel() {
     private var nextMessageId = 1L
     private var nextSelectionId = 1L
+    private var hasShownOutsideDenmarkMessage = false
 
     private val searchQuery = MutableStateFlow("")
     private val searchBias = MutableStateFlow<SearchBias?>(null)
@@ -223,6 +224,11 @@ class MapViewModel(
     }
 
     fun selectRenderedPoi(place: PlaceSummary) {
+        if (!DenmarkCoverage.contains(place.latitude, place.longitude)) {
+            showOutsideDenmarkMessage()
+            return
+        }
+
         searchQuery.value = ""
         val selectionId = nextSelectionId++
         _uiState.update { state ->
@@ -305,6 +311,11 @@ class MapViewModel(
         longitude: Double,
         latitude: Double,
     ) {
+        if (!DenmarkCoverage.contains(latitude, longitude)) {
+            showOutsideDenmarkMessage()
+            return
+        }
+
         val selectionId = nextSelectionId++
         val initialSelection = SelectedPlace(
             selectionId = selectionId,
@@ -540,6 +551,25 @@ class MapViewModel(
             text = text,
             autoDismissMillis = autoDismissMillis,
         )
+    }
+
+    private fun showOutsideDenmarkMessage() {
+        if (hasShownOutsideDenmarkMessage) return
+        _uiState.update { state ->
+            if (state.overlayMessage != null) {
+                return@update state
+            }
+
+            hasShownOutsideDenmarkMessage = true
+            state.copy(
+                overlayMessage = newMessage(
+                    source = MapOverlaySource.Coverage,
+                    tone = MapOverlayTone.Info,
+                    text = "Browsing is global; place details are available in Denmark only.",
+                    autoDismissMillis = 4_500L,
+                ),
+            )
+        }
     }
 
     companion object {
