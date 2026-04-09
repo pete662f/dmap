@@ -1,6 +1,6 @@
 This directory is populated by `../../scripts/prepare-style-assets.sh`.
 
-The generated style is based on a pinned upstream OSM Liberty snapshot and then passed through `../../scripts/patch-mobile-style.py` to keep the Android mobile presentation deterministic and maintainable.
+The generated style is based on a pinned upstream OSM Liberty snapshot and then passed through `../../scripts/patch-mobile-style.py` and `../../scripts/patch-world-lowres-style.py` to keep the Android mobile presentation deterministic and maintainable.
 
 Generated outputs:
 
@@ -17,9 +17,9 @@ Generated outputs:
 The generated style is based on OSM Liberty but rewritten for fully self-hosted use:
 
 - vector source -> `mbtiles://{openmaptiles}`
+- world fallback source -> `mbtiles://{world-lowres}`
 - sprite -> local TileServer style folder
 - glyphs -> local TileServer fonts endpoint
-- world reference GeoJSON -> local TileServer files endpoint
 - external natural-earth raster source removed
 
 The matching glyph PBFs are prefetched into `../../fonts/` during bootstrap.

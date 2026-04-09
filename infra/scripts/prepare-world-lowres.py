@@ -4,11 +4,9 @@ import shutil
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Optional
 
 
 WORLD_CITY_LIMIT = 180
-WORLD_COPY_LONGITUDE_OFFSETS = (-360.0, 0.0, 360.0)
 
 
 def load_geojson(cache_dir: Path, ref: str, filename: str) -> dict:
@@ -22,7 +20,7 @@ def load_geojson(cache_dir: Path, ref: str, filename: str) -> dict:
     return json.loads(cached_path.read_text(encoding="utf-8"))
 
 
-def compact_feature(feature: dict, properties: Optional[dict] = None) -> dict:
+def compact_feature(feature: dict, properties: dict | None = None) -> dict:
     return {
         "type": "Feature",
         "properties": properties or {},
@@ -30,46 +28,27 @@ def compact_feature(feature: dict, properties: Optional[dict] = None) -> dict:
     }
 
 
-def shift_position(position: list, longitude_offset: float) -> list:
-    return [position[0] + longitude_offset, position[1], *position[2:]]
-
-
-def shift_coordinates(coordinates, longitude_offset: float):
-    if isinstance(coordinates[0], (int, float)):
-        return shift_position(coordinates, longitude_offset)
-    return [shift_coordinates(child, longitude_offset) for child in coordinates]
-
-
-def shifted_feature(feature: dict, longitude_offset: float) -> dict:
-    return {
-        "type": "Feature",
-        "properties": feature["properties"],
-        "geometry": {
-            "type": feature["geometry"]["type"],
-            "coordinates": shift_coordinates(feature["geometry"]["coordinates"], longitude_offset),
-        },
-    }
-
-
-def duplicate_world_copies(features: list[dict]) -> list[dict]:
-    duplicated = []
-    for longitude_offset in WORLD_COPY_LONGITUDE_OFFSETS:
-        for feature in features:
-            duplicated.append(shifted_feature(feature, longitude_offset))
-    return duplicated
+def write_geojson(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def prepare_land(land_geojson: dict) -> dict:
-    features = [compact_feature(feature) for feature in land_geojson["features"]]
     return {
         "type": "FeatureCollection",
-        "features": duplicate_world_copies(features),
+        "features": [compact_feature(feature) for feature in land_geojson["features"]],
     }
 
 
-def prepare_borders(border_geojson: dict) -> dict:
+def prepare_water(water_geojson: dict) -> dict:
+    return {
+        "type": "FeatureCollection",
+        "features": [compact_feature(feature) for feature in water_geojson["features"]],
+    }
+
+
+def prepare_boundaries(boundary_geojson: dict) -> dict:
     features = []
-    for feature in border_geojson["features"]:
+    for feature in boundary_geojson["features"]:
         properties = feature.get("properties", {})
         features.append(
             compact_feature(
@@ -81,10 +60,51 @@ def prepare_borders(border_geojson: dict) -> dict:
                 },
             ),
         )
-    return {"type": "FeatureCollection", "features": duplicate_world_copies(features)}
+    return {"type": "FeatureCollection", "features": features}
 
 
-def prepare_cities(city_geojson: dict) -> dict:
+def prepare_country_labels(country_geojson: dict) -> dict:
+    features = []
+    for feature in country_geojson["features"]:
+        properties = feature.get("properties", {})
+        label_x = properties.get("LABEL_X")
+        label_y = properties.get("LABEL_Y")
+        if label_x is None or label_y is None:
+            continue
+
+        label_rank = properties.get("LABELRANK", 99)
+        scale_rank = properties.get("scalerank", 99)
+        min_zoom = properties.get("MIN_LABEL", 1.0)
+
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "name": properties.get("NAME"),
+                    "name_en": properties.get("NAME_EN") or properties.get("NAME"),
+                    "labelrank": label_rank,
+                    "scalerank": scale_rank,
+                    "min_zoom": min_zoom,
+                    "sort_rank": label_rank * 100 + scale_rank * 10,
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [label_x, label_y],
+                },
+            },
+        )
+
+    features.sort(
+        key=lambda feature: (
+            feature["properties"]["labelrank"],
+            feature["properties"]["scalerank"],
+            feature["properties"]["name_en"] or "",
+        ),
+    )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def prepare_city_labels(city_geojson: dict) -> dict:
     selected = []
     for feature in city_geojson["features"]:
         properties = feature.get("properties", {})
@@ -122,18 +142,14 @@ def prepare_cities(city_geojson: dict) -> dict:
 
     return {
         "type": "FeatureCollection",
-        "features": duplicate_world_copies(selected[:WORLD_CITY_LIMIT]),
+        "features": selected[:WORLD_CITY_LIMIT],
     }
-
-
-def write_geojson(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> int:
     if len(sys.argv) != 4:
         print(
-            "Usage: prepare-world-reference.py NATURAL_EARTH_REF CACHE_DIR OUTPUT_DIR",
+            "Usage: prepare-world-lowres.py NATURAL_EARTH_REF CACHE_DIR OUTPUT_DIR",
             file=sys.stderr,
         )
         return 1
@@ -144,13 +160,16 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     land_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_110m_land.geojson")
-    border_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_110m_admin_0_boundary_lines_land.geojson")
+    water_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_110m_ocean.geojson")
+    boundary_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_110m_admin_0_boundary_lines_land.geojson")
     city_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_50m_populated_places_simple.geojson")
+    country_geojson = load_geojson(cache_dir, natural_earth_ref, "ne_50m_admin_0_countries.geojson")
 
-    write_geojson(output_dir / "land.geojson", prepare_land(land_geojson))
-    write_geojson(output_dir / "country-borders.geojson", prepare_borders(border_geojson))
-    write_geojson(output_dir / "major-cities.geojson", prepare_cities(city_geojson))
-
+    write_geojson(output_dir / "world_land.geojson", prepare_land(land_geojson))
+    write_geojson(output_dir / "world_water.geojson", prepare_water(water_geojson))
+    write_geojson(output_dir / "world_boundaries.geojson", prepare_boundaries(boundary_geojson))
+    write_geojson(output_dir / "world_countries.geojson", prepare_country_labels(country_geojson))
+    write_geojson(output_dir / "world_cities.geojson", prepare_city_labels(city_geojson))
     return 0
 
 

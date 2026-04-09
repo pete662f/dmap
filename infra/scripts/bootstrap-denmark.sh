@@ -92,6 +92,9 @@ else
   echo "==> Reusing existing ${OUTPUT_MBTILES}"
 fi
 
+echo "==> Preparing low-zoom world fallback tiles"
+"${SCRIPT_DIR}/build-world-lowres.sh"
+
 echo "==> Preparing self-hosted style assets"
 "${SCRIPT_DIR}/prepare-style-assets.sh"
 
@@ -100,5 +103,6 @@ echo "==> Preparing self-hosted search assets"
 
 echo
 echo "Bootstrap complete."
-echo "MBTiles: ${OUTPUT_MBTILES}"
+echo "Denmark MBTiles: ${OUTPUT_MBTILES}"
+echo "World low-res MBTiles: ${INFRA_DIR}/data/tiles/${WORLD_LOWRES_MBTILES}"
 echo "Run: ${SCRIPT_DIR}/up-backend.sh"

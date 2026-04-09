@@ -17,7 +17,15 @@ OSM Denmark extract
   -> TileServer GL Light
   -> OSM Liberty rewrite
   -> deterministic mobile style patch
+  -> deterministic world-lowres source patch
   -> self-hosted style.json + sprites + glyphs
+  -> Android app
+
+Natural Earth vector data
+  -> Tippecanoe
+  -> world-lowres.mbtiles
+  -> TileServer GL Light
+  -> OSM Liberty world fallback layers
   -> Android app
 
 Photon Denmark dump
@@ -32,11 +40,12 @@ Photon Denmark dump
 ### Tile backend
 
 - Planetiler generates `infra/data/tiles/denmark.mbtiles` directly from the Denmark OSM extract plus auxiliary OpenMapTiles source data
+- `infra/scripts/build-world-lowres.sh` generates `infra/data/tiles/world-lowres.mbtiles` from Natural Earth inputs through Tippecanoe
 - TileServer GL Light serves vector tiles from `infra/data/tiles/denmark.mbtiles`
+- TileServer GL Light also serves vector tiles from `infra/data/tiles/world-lowres.mbtiles` as the global low-zoom fallback source
 - OSM Liberty-derived style is served from `infra/tileserver/styles/osm-liberty/`
-- Natural Earth-derived world reference GeoJSON is served from `infra/tileserver/files/world-reference/` through TileServer's `/files` endpoint
 - `infra/scripts/patch-mobile-style.py` applies the M1 mobile cartography pass after the base style rewrite
-- `infra/scripts/patch-world-reference-style.py` injects the low-resolution world fallback layers and points them at `file://world-reference/...` sources so the runtime style keeps them
+- `infra/scripts/patch-world-lowres-style.py` injects the `world-lowres` vector source plus the low-resolution world fallback layers into the normal style stack
 - Glyph PBFs are served from `infra/tileserver/fonts/` after bootstrap prefetches the exact font stacks used by the style
 - The output remains OpenMapTiles-schema-compatible, which preserves a clean path for later style customization and POI interaction work
 - TileServer remains on the original bind-mounted layout because it was not the latency bottleneck in this optimization pass
@@ -52,6 +61,7 @@ Photon Denmark dump
 ### Android app
 
 - `MapBackendConfig` owns backend URLs
+- `MapBackendConfig` also owns the versioned style URL that appends the generated `style-assets.version` token
 - `AppContainer` wires the current config plus future service interfaces
 - `MapPresentationConfig` owns Denmark-first camera defaults, zoom-out-to-world behavior, global browsing bounds policy, and zoom limits
 - `MapViewModel` owns map screen UI state, lightweight overlay messages, and backend failure state
@@ -80,6 +90,6 @@ Photon Denmark dump
 
 OSM Liberty remains the map base because it already exposes POIs and feels closer to a consumer map product than a stripped-down developer style. The repo keeps that base but adds a deterministic mobile-specific patch step so Android readability improvements do not turn into hand-edited generated-style drift.
 
-The global fallback layer is intentionally lighter. A Natural Earth-derived reference basemap provides land, borders, and major city labels outside Denmark so the map can pan horizontally across the world without committing the repo to a planet-scale OpenMapTiles pipeline. Those assets are served through TileServer's `/files` endpoint and referenced in the generated style with `file://...` URLs because that runtime path survives TileServer's style rewriting.
+The global fallback layer is intentionally lighter. A Natural Earth-derived `world-lowres.mbtiles` tileset provides land, water, borders, country labels, and major city labels outside Denmark so the map can pan horizontally across the world without committing the repo to a planet-scale OpenMapTiles pipeline. Because it is served as a normal TileServer vector source, MapLibre renders the fallback through the standard style stack instead of a custom GeoJSON overlay path.
 
 Photon is the M2 search backend because it gives a practical Denmark-only self-hosted forward-search and reverse-geocoding path with a published Denmark dump. That keeps the milestone small and reliable while preserving a clean future path toward richer ranking or a custom import pipeline.

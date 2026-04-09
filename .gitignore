@@ -22,6 +22,7 @@
 /infra/data/search/photon/photon_data/
 /infra/tileserver/fonts/*
 !/infra/tileserver/fonts/.gitkeep
+/infra/tileserver/style-assets.version
 /infra/tileserver/styles/osm-liberty/*
 !/infra/tileserver/styles/osm-liberty/.gitkeep
 !/infra/tileserver/styles/osm-liberty/README.md

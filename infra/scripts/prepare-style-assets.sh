@@ -11,10 +11,9 @@ OSM_LIBERTY_DIR="${CACHE_DIR}/osm-liberty"
 FONTS_RELEASE_ZIP="${CACHE_DIR}/openmaptiles-fonts-v2.0.zip"
 FONTS_RELEASE_DIR="${CACHE_DIR}/openmaptiles-fonts-v2.0"
 STYLE_OUT_DIR="${INFRA_DIR}/tileserver/styles/osm-liberty"
-WORLD_REFERENCE_CACHE_DIR="${CACHE_DIR}/world-reference"
-WORLD_REFERENCE_OUT_DIR="${INFRA_DIR}/tileserver/files/world-reference"
-WORLD_REFERENCE_LEGACY_DIR="${INFRA_DIR}/tileserver/styles/world-reference"
 FONTS_OUT_DIR="${INFRA_DIR}/tileserver/fonts"
+STYLE_ASSET_VERSION_FILE="${INFRA_DIR}/tileserver/style-assets.version"
+LEGACY_WORLD_REFERENCE_DIR="${INFRA_DIR}/tileserver/files/world-reference"
 
 clone_or_checkout() {
   local repo_url="$1"
@@ -30,7 +29,11 @@ clone_or_checkout() {
   git -C "${dest_dir}" checkout --detach "${repo_ref}"
 }
 
-mkdir -p "${CACHE_DIR}" "${STYLE_OUT_DIR}" "${WORLD_REFERENCE_OUT_DIR}" "${FONTS_OUT_DIR}"
+mkdir -p "${CACHE_DIR}" "${STYLE_OUT_DIR}" "${FONTS_OUT_DIR}"
+
+if [[ -d "${LEGACY_WORLD_REFERENCE_DIR}" ]]; then
+  rm -rf "${LEGACY_WORLD_REFERENCE_DIR}"
+fi
 
 echo "==> Cloning pinned OSM Liberty"
 clone_or_checkout "https://github.com/maputnik/osm-liberty.git" "${OSM_LIBERTY_GIT_REF}" "${OSM_LIBERTY_DIR}"
@@ -74,18 +77,8 @@ PY
 echo "==> Applying deterministic mobile style tuning"
 python3 "${SCRIPT_DIR}/patch-mobile-style.py" "${STYLE_OUT_DIR}/style.json"
 
-echo "==> Preparing low-resolution world reference assets"
-python3 "${SCRIPT_DIR}/prepare-world-reference.py" \
-  "${NATURAL_EARTH_VECTOR_REF}" \
-  "${WORLD_REFERENCE_CACHE_DIR}" \
-  "${WORLD_REFERENCE_OUT_DIR}"
-
-if [[ -d "${WORLD_REFERENCE_LEGACY_DIR}" ]]; then
-  rm -rf "${WORLD_REFERENCE_LEGACY_DIR}"
-fi
-
-echo "==> Layering world reference basemap into style.json"
-python3 "${SCRIPT_DIR}/patch-world-reference-style.py" "${STYLE_OUT_DIR}/style.json"
+echo "==> Layering low-zoom world vector source into style.json"
+python3 "${SCRIPT_DIR}/patch-world-lowres-style.py" "${STYLE_OUT_DIR}/style.json"
 
 python3 - "${STYLE_OUT_DIR}/style.json" <<'PY'
 import json
@@ -93,10 +86,37 @@ import sys
 from pathlib import Path
 
 style = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-land_source = style["sources"].get("dmap-world-land", {})
+world_source = style["sources"].get("world-lowres", {})
 
-if land_source.get("data") != "file://world-reference/land.geojson":
-    raise SystemExit("Generated style is missing the file-served world land source.")
+if world_source.get("url") != "mbtiles://{world-lowres}":
+    raise SystemExit("Generated style is missing the world-lowres vector source.")
+
+metadata = style.get("metadata", {})
+if metadata.get("dmap:world_lowres") != "natural-earth-vector":
+    raise SystemExit("Generated style is missing the world-lowres metadata marker.")
+
+if any(
+    isinstance(source, dict) and "world-reference" in str(source.get("data", ""))
+    for source in style.get("sources", {}).values()
+):
+    raise SystemExit("Generated style still references the legacy world-reference GeoJSON path.")
+PY
+
+python3 - "${STYLE_OUT_DIR}/style.json" "${INFRA_DIR}/data/tiles/${WORLD_LOWRES_MBTILES}" "${STYLE_ASSET_VERSION_FILE}" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+style_path = Path(sys.argv[1])
+world_mbtiles_path = Path(sys.argv[2])
+version_file_path = Path(sys.argv[3])
+
+digest = hashlib.sha256()
+digest.update(style_path.read_bytes())
+if world_mbtiles_path.exists():
+    digest.update(world_mbtiles_path.read_bytes())
+
+version_file_path.write_text(digest.hexdigest()[:16] + "\n", encoding="utf-8")
 PY
 
 rm -rf "${FONTS_OUT_DIR:?}"/*

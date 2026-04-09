@@ -52,8 +52,8 @@ class MapViewModel(
 
     constructor(appContainer: AppContainer) : this(
         searchService = appContainer.searchService,
-        styleUrl = appContainer.mapStyleLoader.styleUrl(),
-        backendUrl = appContainer.mapStyleLoader.backendBaseUrl(),
+        styleUrl = appContainer.backendConfig.styleUrl,
+        backendUrl = appContainer.backendConfig.baseUrl,
     )
 
     init {

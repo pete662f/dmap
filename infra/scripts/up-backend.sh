@@ -25,6 +25,7 @@ preflight_backend_assets() {
 
   require_path "${INFRA_DIR}/tileserver/styles/osm-liberty/style.json" "TileServer style JSON" || ok=1
   require_path "${INFRA_DIR}/data/tiles/denmark.mbtiles" "MBTiles database" || ok=1
+  require_path "${INFRA_DIR}/data/tiles/world-lowres.mbtiles" "World low-res MBTiles database" || ok=1
   require_path "${INFRA_DIR}/data/search/photon/photon.jar" "Photon jar" || ok=1
   require_path "${INFRA_DIR}/data/search/photon/photon_data" "Photon data directory" || ok=1
   require_path "${INFRA_DIR}/data/search/photon/.dataset-version" "Photon dataset marker" || ok=1

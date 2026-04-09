@@ -17,20 +17,53 @@ check() {
 
 assert_style_contains() {
   local style_url="$1"
-  local style_json
-
   echo "==> validating ${style_url}"
-  style_json="$(curl --fail --silent --show-error --location "${style_url}")"
+  python3 - "$style_url" <<'PY'
+import json
+import sys
+import urllib.request
 
-  if [[ "${style_json}" != *'"dmap-world-land"'* ]]; then
-    echo "Style endpoint is missing the world fallback source." >&2
-    exit 1
-  fi
+style_url = sys.argv[1]
+with urllib.request.urlopen(style_url) as response:
+    style = json.loads(response.read().decode("utf-8"))
 
-  if [[ "${style_json}" != *'/files/world-reference/land.geojson"'* ]]; then
-    echo "Style endpoint is missing the served world land source." >&2
-    exit 1
-  fi
+metadata = style.get("metadata", {})
+if metadata.get("dmap:world_lowres") != "natural-earth-vector":
+    raise SystemExit("Style endpoint is missing the world-lowres metadata marker.")
+
+sources = style.get("sources", {})
+world_source = sources.get("world-lowres")
+if world_source is None:
+    raise SystemExit("Style endpoint is missing the world-lowres source.")
+
+if world_source.get("type") != "vector":
+    raise SystemExit("world-lowres source is not a vector source.")
+
+if any(
+    isinstance(source, dict) and "world-reference" in str(source.get("data", ""))
+    for source in sources.values()
+):
+    raise SystemExit("Style endpoint still references the removed world-reference GeoJSON path.")
+
+layers = style.get("layers", [])
+layer_index = {layer.get("id"): index for index, layer in enumerate(layers)}
+required_layers = [
+    "dmap-world-water",
+    "dmap-world-land",
+    "dmap-world-country-borders",
+    "dmap-world-country-labels",
+    "dmap-world-major-cities",
+]
+for layer_id in required_layers:
+    if layer_id not in layer_index:
+        raise SystemExit(f"Style endpoint is missing layer {layer_id}.")
+
+if layer_index["dmap-world-country-labels"] <= layer_index["water"]:
+    raise SystemExit("World country labels render below water.")
+
+if layer_index["dmap-world-major-cities"] <= layer_index["water"]:
+    raise SystemExit("World major city labels render below water.")
+PY
 }
 
 check "${MAP_BASE_URL}/styles/osm-liberty/style.json"
@@ -38,11 +71,11 @@ assert_style_contains "${MAP_BASE_URL}/styles/osm-liberty/style.json"
 check "${MAP_BASE_URL}/styles/osm-liberty/sprite.json"
 check "${MAP_BASE_URL}/styles/osm-liberty/sprite.png"
 check "${MAP_BASE_URL}/fonts/Open%20Sans%20Regular/0-255.pbf"
-check "${MAP_BASE_URL}/files/world-reference/land.geojson"
-check "${MAP_BASE_URL}/files/world-reference/country-borders.geojson"
-check "${MAP_BASE_URL}/files/world-reference/major-cities.geojson"
 check "${MAP_BASE_URL}/data/openmaptiles.json"
 check "${MAP_BASE_URL}/data/openmaptiles/0/0/0.pbf"
+check "${MAP_BASE_URL}/data/world-lowres.json"
+check "${MAP_BASE_URL}/data/world-lowres/0/0/0.pbf"
+check "${MAP_BASE_URL}/data/world-lowres/1/0/0.pbf"
 check "${SEARCH_BASE_URL}/status"
 check "${SEARCH_BASE_URL}/api?q=aarhus&limit=3"
 check "${SEARCH_BASE_URL}/reverse?lon=12.5683&lat=55.6761&limit=1"

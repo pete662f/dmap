@@ -11,7 +11,7 @@ This repo contains:
 ## What M2 includes
 
 - Self-hosted Denmark vector tiles built locally with Planetiler's OpenMapTiles profile
-- Self-hosted low-resolution world reference basemap layered under the Denmark detail tiles
+- Self-hosted low-resolution global vector basemap layered under the Denmark detail tiles
 - Self-hosted OSM Liberty-based style, sprites, and glyphs with a deterministic mobile style patch
 - Self-hosted Photon search and reverse geocoding backend for Denmark
 - Native Android app with a polished map-first screen
@@ -33,15 +33,15 @@ This repo contains:
 
 ## Quick start
 
-### 1. Bootstrap Denmark map data, self-hosted style assets, world reference assets, and Photon search data
+### 1. Bootstrap Denmark map data, self-hosted style assets, world low-res tiles, and Photon search data
 
 ```bash
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, generates a lightweight Natural Earth-derived world reference layer under TileServer's `/files` path, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, builds a lightweight Natural Earth-derived `world-lowres.mbtiles` fallback tileset, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
 
-Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies deterministic mobile and world-reference patch steps so the generated style is ready for the Android presentation.
+Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies deterministic mobile and world-lowres patch steps so the generated style is ready for the Android presentation.
 
 Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
 
@@ -72,7 +72,7 @@ Optional validation:
 ./infra/scripts/verify-backend.sh
 ```
 
-The backend verification now checks that the served style still includes the world fallback sources and that the low-resolution world-reference GeoJSON files are reachable from `/files/world-reference/`.
+The backend verification now checks that the served style still includes the `world-lowres` vector source, that fallback label layers render above water, and that representative `world-lowres` tile endpoints are reachable.
 
 ### 3. Run the Android app
 
@@ -88,6 +88,7 @@ DMAP_HOST_IP=192.168.0.195
 ```
 
 Then rebuild and reinstall the app so the compiled Android `BuildConfig` picks up the new host.
+The Android build also reads `infra/tileserver/style-assets.version` and appends that token to the style URL, so local style changes invalidate the app's cached style fetch.
 
 If you prefer Android-only overrides, you can still create `android/local.properties` and point it at your machine’s LAN IP:
 
@@ -174,8 +175,8 @@ The backend helper scripts use the same repo `.env` file:
 ## Backend endpoints
 
 - Style JSON: [http://localhost:8080/styles/osm-liberty/style.json](http://localhost:8080/styles/osm-liberty/style.json)
-- World land fallback: [http://localhost:8080/files/world-reference/land.geojson](http://localhost:8080/files/world-reference/land.geojson)
 - TileJSON: [http://localhost:8080/data/openmaptiles.json](http://localhost:8080/data/openmaptiles.json)
+- World fallback TileJSON: [http://localhost:8080/data/world-lowres.json](http://localhost:8080/data/world-lowres.json)
 - Photon status: [http://localhost:8081/status](http://localhost:8081/status)
 - Photon search: [http://localhost:8081/api?q=aarhus&limit=3](http://localhost:8081/api?q=aarhus&limit=3)
 - Photon reverse: [http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1](http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1)

@@ -2,7 +2,6 @@
   "options": {
     "paths": {
       "root": "/data",
-      "files": "files",
       "fonts": "fonts",
       "styles": "styles"
     }
@@ -13,10 +12,10 @@
       "tilejson": {
         "type": "baselayer",
         "bounds": [
-          8.0,
-          54.4,
-          15.3,
-          57.9
+          -180.0,
+          -85.051129,
+          180.0,
+          85.051129
         ]
       }
     }
@@ -24,6 +23,9 @@
   "data": {
     "openmaptiles": {
       "mbtiles": "data/tiles/denmark.mbtiles"
+    },
+    "world-lowres": {
+      "mbtiles": "data/tiles/world-lowres.mbtiles"
     }
   }
 }

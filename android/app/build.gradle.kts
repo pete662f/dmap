@@ -15,6 +15,7 @@ val localProperties = Properties().apply {
 }
 
 val repoRootDir = rootProject.projectDir.parentFile ?: rootProject.projectDir
+val styleAssetVersionFile = repoRootDir.resolve("infra/tileserver/style-assets.version")
 
 fun loadDotEnv(file: File): Map<String, String> {
     if (!file.exists()) {
@@ -84,6 +85,13 @@ val routingBackendUrl = configuredValue(
     defaultValue = dmapHostIp?.let { "http://$it:8082" } ?: "",
 )
 
+val mapStyleAssetVersion = styleAssetVersionFile
+    .takeIf { it.exists() }
+    ?.readText()
+    ?.trim()
+    ?.ifBlank { null }
+    ?: "dev"
+
 android {
     namespace = "com.dmap"
     compileSdk = 35
@@ -98,6 +106,7 @@ android {
         buildConfigField("String", "MAP_BACKEND_URL", quoted(mapBackendUrl))
         buildConfigField("String", "SEARCH_BACKEND_URL", quoted(searchBackendUrl))
         buildConfigField("String", "ROUTING_BACKEND_URL", quoted(routingBackendUrl))
+        buildConfigField("String", "MAP_STYLE_ASSET_VERSION", quoted(mapStyleAssetVersion))
 
         vectorDrawables {
             useSupportLibrary = true
