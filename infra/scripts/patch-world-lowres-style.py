@@ -37,14 +37,6 @@ def main() -> int:
         }
     ]
 
-    for layer in style["layers"]:
-        if layer.get("id") == "background":
-            layer.setdefault("paint", {})
-            layer["paint"]["background-color"] = "rgb(146,183,247)"
-            break
-    else:
-        raise KeyError("Missing style layer: background")
-
     world_reference_layers = [
         {
             "id": "dmap-world-water",

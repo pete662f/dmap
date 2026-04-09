@@ -23,6 +23,8 @@ import json
 import sys
 import urllib.request
 
+LAND_BACKGROUND = "rgb(242,239,233)"
+
 style_url = sys.argv[1]
 with urllib.request.urlopen(style_url) as response:
     style = json.loads(response.read().decode("utf-8"))
@@ -57,6 +59,12 @@ required_layers = [
 for layer_id in required_layers:
     if layer_id not in layer_index:
         raise SystemExit(f"Style endpoint is missing layer {layer_id}.")
+
+background_color = layers[layer_index["background"]].get("paint", {}).get("background-color")
+if background_color != LAND_BACKGROUND:
+    raise SystemExit(
+        f"Style endpoint background color regressed: expected {LAND_BACKGROUND}, got {background_color!r}."
+    )
 
 if layer_index["dmap-world-country-labels"] <= layer_index["water"]:
     raise SystemExit("World country labels render below water.")

@@ -85,6 +85,9 @@ import json
 import sys
 from pathlib import Path
 
+LAND_BACKGROUND = "rgb(242,239,233)"
+WATER_FILL = "rgb(146,183,247)"
+
 style = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 world_source = style["sources"].get("world-lowres", {})
 
@@ -100,6 +103,19 @@ if any(
     for source in style.get("sources", {}).values()
 ):
     raise SystemExit("Generated style still references the legacy world-reference GeoJSON path.")
+
+layers = {layer.get("id"): layer for layer in style.get("layers", [])}
+background_color = layers.get("background", {}).get("paint", {}).get("background-color")
+if background_color != LAND_BACKGROUND:
+    raise SystemExit(
+        f"Generated style background color regressed: expected {LAND_BACKGROUND}, got {background_color!r}."
+    )
+
+world_water_color = layers.get("dmap-world-water", {}).get("paint", {}).get("fill-color")
+if world_water_color != WATER_FILL:
+    raise SystemExit(
+        f"Generated style world fallback water regressed: expected {WATER_FILL}, got {world_water_color!r}."
+    )
 PY
 
 python3 - "${STYLE_OUT_DIR}/style.json" "${INFRA_DIR}/data/tiles/${WORLD_LOWRES_MBTILES}" "${STYLE_ASSET_VERSION_FILE}" <<'PY'
