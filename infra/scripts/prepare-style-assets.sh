@@ -11,8 +11,6 @@ OSM_LIBERTY_DIR="${CACHE_DIR}/osm-liberty"
 FONTS_RELEASE_ZIP="${CACHE_DIR}/openmaptiles-fonts-v2.0.zip"
 FONTS_RELEASE_DIR="${CACHE_DIR}/openmaptiles-fonts-v2.0"
 STYLE_OUT_DIR="${INFRA_DIR}/tileserver/styles/osm-liberty"
-WORLD_REFERENCE_CACHE_DIR="${CACHE_DIR}/world-reference"
-WORLD_REFERENCE_OUT_DIR="${INFRA_DIR}/tileserver/styles/world-reference"
 FONTS_OUT_DIR="${INFRA_DIR}/tileserver/fonts"
 
 clone_or_checkout() {
@@ -29,7 +27,7 @@ clone_or_checkout() {
   git -C "${dest_dir}" checkout --detach "${repo_ref}"
 }
 
-mkdir -p "${CACHE_DIR}" "${STYLE_OUT_DIR}" "${WORLD_REFERENCE_OUT_DIR}" "${FONTS_OUT_DIR}"
+mkdir -p "${CACHE_DIR}" "${STYLE_OUT_DIR}" "${FONTS_OUT_DIR}"
 
 echo "==> Cloning pinned OSM Liberty"
 clone_or_checkout "https://github.com/maputnik/osm-liberty.git" "${OSM_LIBERTY_GIT_REF}" "${OSM_LIBERTY_DIR}"
@@ -72,15 +70,6 @@ PY
 
 echo "==> Applying deterministic mobile style tuning"
 python3 "${SCRIPT_DIR}/patch-mobile-style.py" "${STYLE_OUT_DIR}/style.json"
-
-echo "==> Preparing low-resolution world reference assets"
-python3 "${SCRIPT_DIR}/prepare-world-reference.py" \
-  "${NATURAL_EARTH_VECTOR_REF}" \
-  "${WORLD_REFERENCE_CACHE_DIR}" \
-  "${WORLD_REFERENCE_OUT_DIR}"
-
-echo "==> Layering world reference basemap into style.json"
-python3 "${SCRIPT_DIR}/patch-world-reference-style.py" "${STYLE_OUT_DIR}/style.json"
 
 rm -rf "${FONTS_OUT_DIR:?}"/*
 
