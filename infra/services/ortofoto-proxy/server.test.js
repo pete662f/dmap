@@ -1,0 +1,120 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { afterEach, test } = require('node:test');
+const {
+  buildUpstreamTileUrl,
+  createServer,
+  parseTilePath,
+} = require('./server');
+
+const servers = [];
+
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) => closeServer(server)));
+});
+
+test('healthz returns token status without leaking token', async () => {
+  const baseUrl = await listen(createServer({ token: 'secret-token' }));
+  const response = await fetch(`${baseUrl}/healthz`);
+  const text = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(text, /"tokenConfigured":true/);
+  assert.doesNotMatch(text, /secret-token/);
+});
+
+test('missing token returns 503 for tile requests', async () => {
+  const baseUrl = await listen(createServer({ token: '' }));
+  const response = await fetch(`${baseUrl}/ortofoto/tiles/10/547/322.jpg`);
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'orthofoto_token_missing' });
+});
+
+test('invalid and out of range tile paths are rejected', () => {
+  assert.deepEqual(parseTilePath('/ortofoto/tiles/a/547/322.jpg'), {
+    ok: false,
+    status: 400,
+    error: 'invalid_tile_coordinate',
+  });
+  assert.deepEqual(parseTilePath('/ortofoto/tiles/21/547/322.jpg'), {
+    ok: false,
+    status: 400,
+    error: 'zoom_out_of_range',
+  });
+  assert.deepEqual(parseTilePath('/ortofoto/tiles/10/1024/322.jpg'), {
+    ok: false,
+    status: 400,
+    error: 'tile_coordinate_out_of_range',
+  });
+});
+
+test('valid tile request forwards expected WMTS parameters', async () => {
+  let upstreamRequest;
+  const fetchImpl = async (url) => {
+    upstreamRequest = url;
+    return new Response(Buffer.from([1, 2, 3]), {
+      status: 200,
+      headers: { 'content-type': 'image/jpeg' },
+    });
+  };
+  const baseUrl = await listen(
+    createServer({
+      token: 'secret-token',
+      upstreamUrl: 'https://example.com/orto',
+      fetchImpl,
+    }),
+  );
+
+  const response = await fetch(`${baseUrl}/ortofoto/tiles/10/547/322.jpg`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const upstreamUrl = new URL(upstreamRequest);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/jpeg');
+  assert.equal(response.headers.get('cache-control'), 'public, max-age=86400');
+  assert.deepEqual([...bytes], [1, 2, 3]);
+  assert.equal(upstreamUrl.origin + upstreamUrl.pathname, 'https://example.com/orto');
+  assert.equal(upstreamUrl.searchParams.get('SERVICE'), 'WMTS');
+  assert.equal(upstreamUrl.searchParams.get('REQUEST'), 'GetTile');
+  assert.equal(upstreamUrl.searchParams.get('VERSION'), '1.0.0');
+  assert.equal(upstreamUrl.searchParams.get('LAYER'), 'orto_foraar_webm');
+  assert.equal(upstreamUrl.searchParams.get('STYLE'), 'default');
+  assert.equal(upstreamUrl.searchParams.get('FORMAT'), 'image/jpeg');
+  assert.equal(upstreamUrl.searchParams.get('tileMatrixSet'), 'DFD_GoogleMapsCompatible');
+  assert.equal(upstreamUrl.searchParams.get('tileMatrix'), '10');
+  assert.equal(upstreamUrl.searchParams.get('tileRow'), '322');
+  assert.equal(upstreamUrl.searchParams.get('tileCol'), '547');
+  assert.equal(upstreamUrl.searchParams.get('token'), 'secret-token');
+});
+
+test('buildUpstreamTileUrl preserves existing upstream query params', () => {
+  const url = buildUpstreamTileUrl(
+    'https://example.com/orto?existing=1',
+    'secret-token',
+    { z: 10, x: 547, y: 322 },
+  );
+
+  assert.equal(url.searchParams.get('existing'), '1');
+  assert.equal(url.searchParams.get('token'), 'secret-token');
+});
+
+async function listen(server) {
+  servers.push(server);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  return `http://127.0.0.1:${address.port}`;
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    });
+  });
+}

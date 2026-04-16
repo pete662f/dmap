@@ -1,3 +1,4 @@
 sdk.dir=/Users/your-user/Library/Android/sdk
 dmap.backendUrl=http://192.168.1.10:8080
 dmap.searchBackendUrl=http://192.168.1.10:8081
+dmap.imageryBackendUrl=http://192.168.1.10:8083

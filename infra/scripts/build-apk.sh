@@ -15,6 +15,7 @@ CLEAN_BUILD=0
 MAP_BACKEND_URL="${DMAP_BACKEND_URL:-}"
 SEARCH_BACKEND_URL="${DMAP_SEARCH_BACKEND_URL:-}"
 ROUTING_BACKEND_URL="${DMAP_ROUTING_BACKEND_URL:-}"
+IMAGERY_BACKEND_URL="${DMAP_IMAGERY_BACKEND_URL:-}"
 
 usage() {
   cat <<'EOF'
@@ -29,12 +30,14 @@ Options:
   --backend-url URL           Override dmap.backendUrl
   --search-backend-url URL    Override dmap.searchBackendUrl
   --routing-backend-url URL   Override dmap.routingBackendUrl
+  --imagery-backend-url URL   Override dmap.imageryBackendUrl
   -h, --help                  Show this help
 
 Environment variable fallbacks:
   DMAP_BACKEND_URL
   DMAP_SEARCH_BACKEND_URL
   DMAP_ROUTING_BACKEND_URL
+  DMAP_IMAGERY_BACKEND_URL
   ANDROID_HOME / ANDROID_SDK_ROOT
 
 Build config precedence:
@@ -66,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --routing-backend-url)
       ROUTING_BACKEND_URL="${2:-}"
+      shift 2
+      ;;
+    --imagery-backend-url)
+      IMAGERY_BACKEND_URL="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -168,6 +175,9 @@ if [[ -n "${SEARCH_BACKEND_URL}" ]]; then
 fi
 if [[ -n "${ROUTING_BACKEND_URL}" ]]; then
   GRADLE_ARGS+=("-Pdmap.routingBackendUrl=${ROUTING_BACKEND_URL}")
+fi
+if [[ -n "${IMAGERY_BACKEND_URL}" ]]; then
+  GRADLE_ARGS+=("-Pdmap.imageryBackendUrl=${IMAGERY_BACKEND_URL}")
 fi
 
 GRADLE_TASK="assembleDebug"

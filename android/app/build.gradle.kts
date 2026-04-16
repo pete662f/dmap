@@ -84,6 +84,13 @@ val routingBackendUrl = configuredValue(
     defaultValue = dmapHostIp?.let { "http://$it:8082" } ?: "",
 )
 
+val imageryBackendUrl = configuredValue(
+    gradleProperty = "dmap.imageryBackendUrl",
+    localProperty = "dmap.imageryBackendUrl",
+    envValue = dotEnv["DMAP_IMAGERY_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+    defaultValue = dmapHostIp?.let { "http://$it:8083" } ?: "http://10.0.2.2:8083",
+)
+
 android {
     namespace = "com.dmap"
     compileSdk = 35
@@ -98,6 +105,7 @@ android {
         buildConfigField("String", "MAP_BACKEND_URL", quoted(mapBackendUrl))
         buildConfigField("String", "SEARCH_BACKEND_URL", quoted(searchBackendUrl))
         buildConfigField("String", "ROUTING_BACKEND_URL", quoted(routingBackendUrl))
+        buildConfigField("String", "IMAGERY_BACKEND_URL", quoted(imageryBackendUrl))
 
         vectorDrawables {
             useSupportLibrary = true

@@ -96,6 +96,7 @@ fun MapScreen(
     val mapView = rememberMapViewWithLifecycle(lifecycleOwner)
     val mapPresentation = remember { MapPresentationConfig.denmark() }
     val markerController = remember(context) { SelectedPlaceMarkerController(context) }
+    val ortofotoLayerController = remember { OrtofotoLayerController() }
     val poiHitDetector = remember(context) {
         RenderedPoiHitDetector(context.resources.displayMetrics.density)
     }
@@ -223,6 +224,13 @@ fun MapScreen(
         viewModel.onStyleLoading()
         map.setStyle(uiState.styleUrl) { style ->
             currentStyle = style
+            renderOrtofotoLayer(
+                controller = ortofotoLayerController,
+                style = style,
+                baseLayer = uiState.mapBaseLayer,
+                tileUrl = uiState.imageryTileUrl,
+                onFailure = viewModel::onImageryLayerFailed,
+            )
             markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
             viewModel.onStyleLoaded()
             if (uiState.locationPermissionState == LocationPermissionState.Granted) {
@@ -232,6 +240,18 @@ fun MapScreen(
                 )
             }
         }
+    }
+
+    LaunchedEffect(currentStyle, uiState.mapBaseLayer, uiState.imageryTileUrl) {
+        val style = currentStyle ?: return@LaunchedEffect
+        renderOrtofotoLayer(
+            controller = ortofotoLayerController,
+            style = style,
+            baseLayer = uiState.mapBaseLayer,
+            tileUrl = uiState.imageryTileUrl,
+            onFailure = viewModel::onImageryLayerFailed,
+        )
+        markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
     }
 
     LaunchedEffect(uiState.locationPermissionState, mapLibreMap, currentStyle) {
@@ -297,6 +317,18 @@ fun MapScreen(
             targetValue = if (selectedPlace != null) 116.dp else 16.dp,
             animationSpec = tween(durationMillis = 250),
             label = "locateButtonBottom",
+        )
+
+        LayerToggleButton(
+            baseLayer = uiState.mapBaseLayer,
+            onClick = viewModel::toggleBaseLayer,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(
+                    end = 16.dp,
+                    bottom = locateButtonBottom + 60.dp,
+                ),
         )
 
         LocateMeButton(
@@ -397,6 +429,51 @@ fun MapScreen(
                 message = uiState.backendMessage ?: "Could not reach the self-hosted tile server.",
                 onRetry = viewModel::retry,
                 modifier = Modifier.align(Alignment.Center),
+            )
+        }
+    }
+}
+
+private fun renderOrtofotoLayer(
+    controller: OrtofotoLayerController,
+    style: Style,
+    baseLayer: MapBaseLayer,
+    tileUrl: String?,
+    onFailure: (String?) -> Unit,
+) {
+    runCatching {
+        controller.render(style, baseLayer, tileUrl)
+    }.onFailure { error ->
+        controller.remove(style)
+        onFailure(error.message)
+    }
+}
+
+@Composable
+private fun LayerToggleButton(
+    baseLayer: MapBaseLayer,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ortofotoActive = baseLayer == MapBaseLayer.Ortofoto
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_layers),
+                contentDescription = if (ortofotoActive) "Show map" else "Show Ortofoto",
+                tint = if (ortofotoActive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.size(24.dp),
             )
         }
     }

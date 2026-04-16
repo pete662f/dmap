@@ -87,6 +87,16 @@ Useful endpoints:
 - `http://localhost:8080/data/openmaptiles.json`
 - `http://localhost:8081/status`
 - `http://localhost:8081/api?q=aarhus&limit=3`
+- `http://localhost:8083/healthz`
+- `http://localhost:8083/ortofoto/tilejson.json`
+
+Ortofoto imagery is served through a local proxy so the Dataforsyningen credential is not compiled into the Android APK. To enable tile forwarding, add this to the repo root `.env`:
+
+```dotenv
+DMAP_ORTHOFOTO_TOKEN=your-dataforsyningen-token
+```
+
+Without `DMAP_ORTHOFOTO_TOKEN`, the proxy still starts and reports healthy, but tile requests return `503`.
 
 ### Verify the backend
 
@@ -94,7 +104,8 @@ Useful endpoints:
 ./infra/scripts/verify-backend.sh
 ```
 
-The verification script now checks both the tile backend and the Photon search backend.
+The verification script checks the tile backend, Photon search backend, and Ortofoto proxy health.
+If `DMAP_ORTHOFOTO_TOKEN` is set, it also checks one Ortofoto tile request.
 When no explicit URLs are passed, it resolves backend URLs from the repo root `.env`.
 
 ### Benchmark the backend
@@ -119,12 +130,13 @@ Useful overrides:
 
 ## Android setup
 
-The app uses both `BuildConfig.MAP_BACKEND_URL` and `BuildConfig.SEARCH_BACKEND_URL`.
+The app uses `BuildConfig.MAP_BACKEND_URL`, `BuildConfig.SEARCH_BACKEND_URL`, and `BuildConfig.IMAGERY_BACKEND_URL`.
 
 Default:
 
 - Emulator: `http://10.0.2.2:8080`
 - Emulator search: `http://10.0.2.2:8081`
+- Emulator imagery: `http://10.0.2.2:8083`
 
 For a physical device, set your Mac's LAN IP in the repo root `.env`:
 
@@ -140,6 +152,7 @@ If you want Android-only overrides, you can also create `android/local.propertie
 sdk.dir=/Users/your-user/Library/Android/sdk
 dmap.backendUrl=http://192.168.1.10:8080
 dmap.searchBackendUrl=http://192.168.1.10:8081
+dmap.imageryBackendUrl=http://192.168.1.10:8083
 ```
 
 Build from CLI:
@@ -163,13 +176,14 @@ Physical-device flow:
 5. If the app still cannot connect, test these URLs directly from the phone browser:
    - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
    - `http://<mac-ip>:8081/status`
+   - `http://<mac-ip>:8083/healthz`
 
 If the app UI shows `Backend: http://10.0.2.2:8080`, the installed APK was compiled with emulator defaults and needs to be rebuilt after fixing the config.
 
 The Android build can also read backend settings from the repo root `.env`:
 
-- `DMAP_HOST_IP=192.168.1.10` derives backend URLs for ports `8080`, `8081`, and `8082`
-- or use explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_ROUTING_BACKEND_URL`
+- `DMAP_HOST_IP=192.168.1.10` derives backend URLs for ports `8080`, `8081`, `8082`, and `8083`
+- or use explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, `DMAP_ROUTING_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
 
 Precedence is:
 
@@ -182,7 +196,7 @@ Optional:
 
 - release build: `./infra/scripts/build-apk.sh --release`
 - override backend URLs for the build:
-  `./infra/scripts/build-apk.sh --backend-url http://192.168.1.10:8080 --search-backend-url http://192.168.1.10:8081`
+  `./infra/scripts/build-apk.sh --backend-url http://192.168.1.10:8080 --search-backend-url http://192.168.1.10:8081 --imagery-backend-url http://192.168.1.10:8083`
 
 The shared repo `.env` is used by:
 
@@ -207,6 +221,7 @@ Run from Android Studio:
 - Tapping a visible rendered POI selects that POI immediately.
 - Long-press on the map drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate.
 - Empty taps do not clear the current selection and do not snap to nearby POIs.
+- The layer button switches to GeoDanmark Ortofoto imagery through the local proxy and keeps vector labels, POIs, pins, and the location puck above the imagery.
 
 ## Caching
 
@@ -243,3 +258,5 @@ For glyphs, M1 intentionally downloads the exact prebuilt OpenMapTiles font PBFs
 For style maintenance, the repo intentionally keeps the upstream OSM Liberty snapshot plus a deterministic patch step in `infra/scripts/patch-mobile-style.py`. Future style work should continue through that patch layer instead of manually editing the generated `style.json`.
 
 For search maintenance, M2 intentionally uses Photon plus GraphHopper's official Denmark `1.x` dump as the simplest reliable Denmark-only self-hosted path. A future import pipeline can still be added later without changing the Android search contract because the app already talks only to `SearchService`.
+
+For imagery maintenance, the Ortofoto integration intentionally targets Dataforsyningen's Web Mercator WMTS endpoint (`orto_foraar_webm_DAF`) through a small local proxy. That keeps credentials out of the app and avoids adding projection handling in the Android client.

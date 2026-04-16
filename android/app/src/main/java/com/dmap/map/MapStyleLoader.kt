@@ -7,4 +7,5 @@ class MapStyleLoader(
 ) {
     fun styleUrl(): String = backendConfig.styleUrl
     fun backendBaseUrl(): String = backendConfig.baseUrl
+    fun ortofotoTileUrl(): String? = backendConfig.ortofotoTileUrl
 }

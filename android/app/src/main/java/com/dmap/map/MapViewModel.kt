@@ -34,6 +34,7 @@ class MapViewModel(
     private val searchService: SearchService,
     styleUrl: String,
     backendUrl: String,
+    imageryTileUrl: String? = null,
 ) : ViewModel() {
     private var nextMessageId = 1L
     private var nextSelectionId = 1L
@@ -45,6 +46,7 @@ class MapViewModel(
         MapUiState(
             styleUrl = styleUrl,
             backendUrl = backendUrl,
+            imageryTileUrl = imageryTileUrl,
         ),
     )
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
@@ -53,6 +55,7 @@ class MapViewModel(
         searchService = appContainer.searchService,
         styleUrl = appContainer.mapStyleLoader.styleUrl(),
         backendUrl = appContainer.mapStyleLoader.backendBaseUrl(),
+        imageryTileUrl = appContainer.mapStyleLoader.ortofotoTileUrl(),
     )
 
     init {
@@ -124,6 +127,20 @@ class MapViewModel(
         }
     }
 
+    fun onImageryLayerFailed(message: String?) {
+        _uiState.update { state ->
+            state.copy(
+                mapBaseLayer = MapBaseLayer.Vector,
+                overlayMessage = newMessage(
+                    source = MapOverlaySource.Backend,
+                    tone = MapOverlayTone.Error,
+                    text = message ?: "Ortofoto imagery could not be shown.",
+                    autoDismissMillis = 4_500L,
+                ),
+            )
+        }
+    }
+
     fun setLocationAvailability(state: LocationAvailabilityState) {
         _uiState.update { current ->
             if (current.locationAvailabilityState == state) return@update current
@@ -172,6 +189,21 @@ class MapViewModel(
 
     fun updateCenteredOnUser(isCentered: Boolean) {
         _uiState.update { it.copy(isCenteredOnUser = isCentered) }
+    }
+
+    fun toggleBaseLayer() {
+        _uiState.update { state ->
+            state.copy(
+                mapBaseLayer = when (state.mapBaseLayer) {
+                    MapBaseLayer.Vector -> MapBaseLayer.Ortofoto
+                    MapBaseLayer.Ortofoto -> MapBaseLayer.Vector
+                },
+            )
+        }
+    }
+
+    fun setBaseLayer(layer: MapBaseLayer) {
+        _uiState.update { it.copy(mapBaseLayer = layer) }
     }
 
     fun updateSearchQuery(query: String) {

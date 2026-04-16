@@ -8,6 +8,7 @@ object BackendUrlProvider {
             baseUrl = BuildConfig.MAP_BACKEND_URL,
             searchBaseUrl = BuildConfig.SEARCH_BACKEND_URL,
             routingBaseUrl = BuildConfig.ROUTING_BACKEND_URL,
+            imageryBaseUrl = BuildConfig.IMAGERY_BACKEND_URL,
         )
     }
 }

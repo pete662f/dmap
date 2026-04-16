@@ -13,8 +13,10 @@ This repo contains:
 - Self-hosted Denmark vector tiles built locally with Planetiler's OpenMapTiles profile
 - Self-hosted OSM Liberty-based style, sprites, and glyphs with a deterministic mobile style patch
 - Self-hosted Photon search and reverse geocoding backend for Denmark
+- Local Ortofoto proxy for GeoDanmark spring orthophotos from Dataforsyningen
 - Native Android app with a polished map-first screen
 - Tasteful POI presentation from the vector tile style only
+- Satellite/Ortofoto map mode with vector labels and POIs kept above imagery
 - Runtime location permission flow without first-launch interruption
 - Styled blue dot / puck and a dedicated locate-me control
 - Denmark-first camera defaults, zoom bounds, and smoother recentering
@@ -64,6 +66,13 @@ The local services are served on:
 
 - Map tiles and style: [http://localhost:8080](http://localhost:8080)
 - Search and reverse geocoding: [http://localhost:8081](http://localhost:8081)
+- Ortofoto imagery proxy: [http://localhost:8083](http://localhost:8083)
+
+Ortofoto tile forwarding requires a Dataforsyningen token in the repo root `.env`:
+
+```dotenv
+DMAP_ORTHOFOTO_TOKEN=your-dataforsyningen-token
+```
 
 Optional validation:
 
@@ -92,6 +101,7 @@ If you prefer Android-only overrides, you can still create `android/local.proper
 sdk.dir=/Users/your-user/Library/Android/sdk
 dmap.backendUrl=http://192.168.1.10:8080
 dmap.searchBackendUrl=http://192.168.1.10:8081
+dmap.imageryBackendUrl=http://192.168.1.10:8083
 ```
 
 Then run:
@@ -125,7 +135,8 @@ A template lives at [`android/local.properties.example`](./android/local.propert
 The repo root `.env` is the shared default source for Android builds and backend scripts. The Android build reads:
 
 - `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8082`
-- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_ROUTING_BACKEND_URL`
+- `DMAP_IMAGERY_BACKEND_URL`, or `DMAP_HOST_IP` deriving `:8083`
+- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, `DMAP_ROUTING_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
 
 Build precedence is:
 
@@ -149,6 +160,7 @@ The backend helper scripts use the same repo `.env` file:
 - Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`
 - Start backends: `./infra/scripts/up-backend.sh`
 - Verify map + search backends: `./infra/scripts/verify-backend.sh`
+- Verify Ortofoto proxy tests: `node --test infra/services/ortofoto-proxy/server.test.js`
 - Benchmark map + search backends: `./infra/scripts/benchmark-backend.sh`
 - Build Android debug APK: `./infra/scripts/build-apk.sh`
 - Build Android release APK: `./infra/scripts/build-apk.sh --release`
@@ -165,6 +177,7 @@ The backend helper scripts use the same repo `.env` file:
 - Selecting a search result or tapping a visible rendered POI places a single selected-place marker and opens a compact place card immediately
 - Long-press drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate
 - Empty taps do not clear the current selection and do not snap to nearby POIs
+- The layer button switches between the vector map and GeoDanmark Ortofoto imagery while keeping labels, POIs, pins, and the location puck above the imagery
 
 ## Backend endpoints
 
@@ -173,6 +186,8 @@ The backend helper scripts use the same repo `.env` file:
 - Photon status: [http://localhost:8081/status](http://localhost:8081/status)
 - Photon search: [http://localhost:8081/api?q=aarhus&limit=3](http://localhost:8081/api?q=aarhus&limit=3)
 - Photon reverse: [http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1](http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1)
+- Ortofoto proxy health: [http://localhost:8083/healthz](http://localhost:8083/healthz)
+- Ortofoto TileJSON: [http://localhost:8083/ortofoto/tilejson.json](http://localhost:8083/ortofoto/tilejson.json)
 
 ## Apple Silicon
 
@@ -182,7 +197,7 @@ Apple Silicon is supported for both map and search in M2.
 - Tile serving uses `maptiler/tileserver-gl-light:v5.5.0`, which also publishes `linux/arm64`
 - Photon runs in a small Java 21 container and uses the official GraphHopper Denmark `1.x` dump
 - Photon keeps its imported source data on the host but serves the live OpenSearch index from a Docker-managed volume for better Docker Desktop performance
-- The Android app contract is unchanged: it still loads fully self-hosted style, tiles, and search URLs
+- The Ortofoto proxy runs in a small Node 22 Alpine container and keeps Dataforsyningen credentials out of the APK
 
 ## Docs
 

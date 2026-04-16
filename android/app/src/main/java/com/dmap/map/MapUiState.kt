@@ -12,6 +12,8 @@ enum class MapBackendState {
 data class MapUiState(
     val styleUrl: String,
     val backendUrl: String,
+    val imageryTileUrl: String? = null,
+    val mapBaseLayer: MapBaseLayer = MapBaseLayer.Vector,
     val backendState: MapBackendState = MapBackendState.Loading,
     val locationPermissionState: LocationPermissionState = LocationPermissionState.Unknown,
     val locationAvailabilityState: LocationAvailabilityState = LocationAvailabilityState.Idle,

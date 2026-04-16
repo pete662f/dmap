@@ -24,6 +24,8 @@
 - Real `SearchService` implementation
 - Search UI, result markers, and selected-place card
 - Reverse geocoding support
+- GeoDanmark Ortofoto proxy in `infra/services/ortofoto-proxy/`
+- Android vector/Ortofoto layer toggle with labels and POIs above imagery
 
 ## M3
 
@@ -36,3 +38,4 @@
 - Rich custom POI interaction
 - Data refresh/import hardening
 - Production-minded backend topology and observability
+- Ortofoto opacity controls, historical imagery, and proxy tile caching

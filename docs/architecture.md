@@ -25,6 +25,11 @@ Photon Denmark dump
   -> volume-backed runtime index
   -> forward search + reverse geocoding
   -> Android app
+
+GeoDanmark Ortofoto Web Mercator WMTS
+  -> local Ortofoto proxy with Dataforsyningen token
+  -> unauthenticated raster tile URL
+  -> Android MapLibre raster layer below labels
 ```
 
 ## Runtime components
@@ -47,9 +52,18 @@ Photon Denmark dump
 - Photon serves its live OpenSearch index from the volume-backed `photon_data` path, while `photon.jar` remains bind-mounted from the host
 - Photon starts with explicit `Xms`, `Xmx`, and Vector API JVM flags so first-burst search latency is less dependent on heap growth and default module loading
 
+### Ortofoto backend
+
+- `infra/services/ortofoto-proxy/` is a dependency-free Node HTTP service
+- The proxy reads `DMAP_ORTHOFOTO_TOKEN` from the repo `.env` through Docker Compose
+- Android never receives the Dataforsyningen token; it only calls `/ortofoto/tiles/{z}/{x}/{y}.jpg`
+- The proxy forwards valid tile requests to `https://api.dataforsyningen.dk/orto_foraar_webm_DAF`
+- Missing credentials do not block backend startup; tile requests return `503` until the token is configured
+
 ### Android app
 
 - `MapBackendConfig` owns backend URLs
+- `MapBackendConfig` also derives the Ortofoto tile URL from the imagery backend URL
 - `AppContainer` wires the current config plus future service interfaces
 - `MapPresentationConfig` owns Denmark-first camera defaults and zoom bounds
 - `MapViewModel` owns map screen UI state, lightweight overlay messages, and backend failure state
@@ -57,6 +71,7 @@ Photon Denmark dump
 - `SearchService` is now a real service boundary for forward search and reverse geocoding
 - `SearchUiState` owns query text, loading/error/empty states, results, and the selected place
 - `SelectedPlaceMarkerController` owns the single runtime source/layer used for the current selected place marker
+- `OrtofotoLayerController` owns the runtime raster source/layer and places imagery under the existing vector labels and POIs
 
 ## Future extension points
 
@@ -72,6 +87,13 @@ Photon Denmark dump
 - App seam: `RoutingService`
 - Infra seam: `infra/services/valhalla/`
 - Planned future base URL: `http://localhost:8082`
+
+### Imagery
+
+- App seam: `OrtofotoLayerController`
+- Infra seam: `infra/services/ortofoto-proxy/`
+- Current base URL: `http://localhost:8083`
+- Future improvements can add imagery opacity, historical years, or server-side tile caching without changing the vector tile backend
 
 ## Why OSM Liberty + Photon
 

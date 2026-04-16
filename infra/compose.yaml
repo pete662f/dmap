@@ -38,6 +38,16 @@ services:
       retries: 20
       start_period: 10s
     restart: unless-stopped
+  ortofoto-proxy:
+    build:
+      context: ./services/ortofoto-proxy
+    container_name: dmap2-ortofoto-proxy
+    ports:
+      - "8083:8080"
+    environment:
+      DMAP_ORTHOFOTO_TOKEN: ${DMAP_ORTHOFOTO_TOKEN:-}
+      DMAP_ORTHOFOTO_UPSTREAM_URL: ${DMAP_ORTHOFOTO_UPSTREAM_URL:-https://api.dataforsyningen.dk/orto_foraar_webm_DAF}
+    restart: unless-stopped
 
 volumes:
   photon_data:

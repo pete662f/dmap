@@ -53,11 +53,13 @@ extract_field() {
 MAP_BACKEND_URL="$(extract_field "MAP_BACKEND_URL")"
 SEARCH_BACKEND_URL="$(extract_field "SEARCH_BACKEND_URL")"
 ROUTING_BACKEND_URL="$(extract_field "ROUTING_BACKEND_URL")"
+IMAGERY_BACKEND_URL="$(extract_field "IMAGERY_BACKEND_URL")"
 
 echo "Compiled Android backend configuration (${BUILD_TYPE}):"
 echo "  MAP_BACKEND_URL=${MAP_BACKEND_URL}"
 echo "  SEARCH_BACKEND_URL=${SEARCH_BACKEND_URL}"
 echo "  ROUTING_BACKEND_URL=${ROUTING_BACKEND_URL}"
+echo "  IMAGERY_BACKEND_URL=${IMAGERY_BACKEND_URL}"
 
 if [[ "${MAP_BACKEND_URL}" == "http://10.0.2.2:8080" ]]; then
   echo
