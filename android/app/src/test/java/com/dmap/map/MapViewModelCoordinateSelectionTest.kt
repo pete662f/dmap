@@ -18,8 +18,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapViewModelCoordinateSelectionTest {
@@ -305,7 +310,7 @@ class MapViewModelCoordinateSelectionTest {
             },
         )
 
-        viewModel.selectRenderedPoi(tappedPoi)
+        viewModel.selectRenderedPoi(RenderedPoiSelection(tappedPoi))
         advanceUntilIdle()
 
         val selectedPlace = requireSelectedPlace(viewModel)
@@ -349,13 +354,85 @@ class MapViewModelCoordinateSelectionTest {
             },
         )
 
-        viewModel.selectRenderedPoi(tappedPoi)
+        viewModel.selectRenderedPoi(RenderedPoiSelection(tappedPoi))
         advanceUntilIdle()
 
         val selectedPlace = requireSelectedPlace(viewModel)
         assertEquals("Dantes Plads", selectedPlace.place.title)
         assertNull(selectedPlace.place.subtitle)
         assertEquals("Square", selectedPlace.place.categoryHint)
+    }
+
+    @Test
+    fun `rendered poi stores area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val tappedPoi = PlaceSummary(
+            id = "area:park:Botanisk Have:55.6869:12.5738",
+            title = "Botanisk Have",
+            subtitle = null,
+            latitude = 55.6869,
+            longitude = 12.5738,
+            kind = PlaceKind.Poi,
+            categoryHint = "Park",
+        )
+        val areaOutline = sampleAreaOutline()
+        val viewModel = createViewModel(FakeSearchService())
+
+        viewModel.selectRenderedPoi(RenderedPoiSelection(tappedPoi, areaOutline))
+        runCurrent()
+
+        val state = viewModel.uiState.value.searchUiState
+        assertEquals(tappedPoi, state.selectedPlace?.place)
+        assertSame(areaOutline, state.selectedAreaOutline)
+    }
+
+    @Test
+    fun `search result clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val viewModel = createViewModel(FakeSearchService())
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        runCurrent()
+
+        viewModel.selectSearchResult(
+            SearchResult(
+                place = PlaceSummary(
+                    id = "search:1",
+                    title = "Aarhus Cathedral",
+                    subtitle = "Store Torv 1, 8000 Aarhus C",
+                    latitude = 56.1567,
+                    longitude = 10.2108,
+                    kind = PlaceKind.Poi,
+                    categoryHint = "Cathedral",
+                ),
+            ),
+        )
+
+        assertNull(viewModel.uiState.value.searchUiState.selectedAreaOutline)
+    }
+
+    @Test
+    fun `long press clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val viewModel = createViewModel(FakeSearchService())
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        runCurrent()
+
+        viewModel.selectCoordinateFromLongPress(
+            longitude = 12.5683,
+            latitude = 55.6761,
+        )
+
+        assertNull(viewModel.uiState.value.searchUiState.selectedAreaOutline)
+    }
+
+    @Test
+    fun `clear selection clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+        val viewModel = createViewModel(FakeSearchService())
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        runCurrent()
+
+        viewModel.clearSelectedPlace()
+
+        val state = viewModel.uiState.value.searchUiState
+        assertNull(state.selectedPlace)
+        assertNull(state.selectedAreaOutline)
     }
 
     private fun createViewModel(searchService: SearchService): MapViewModel {
@@ -368,6 +445,33 @@ class MapViewModelCoordinateSelectionTest {
 
     private fun requireSelectedPlace(viewModel: MapViewModel) = viewModel.uiState.value.searchUiState.selectedPlace
         .also { assertNotNull(it) }!!
+
+    private fun samplePoi(): PlaceSummary {
+        return PlaceSummary(
+            id = "poi:1",
+            title = "Botanisk Have",
+            subtitle = null,
+            latitude = 55.6869,
+            longitude = 12.5738,
+            kind = PlaceKind.Poi,
+            categoryHint = "Park",
+        )
+    }
+
+    private fun sampleAreaOutline(): FeatureCollection {
+        return FeatureCollection.fromFeatures(
+            arrayOf(
+                Feature.fromGeometry(
+                    LineString.fromLngLats(
+                        listOf(
+                            Point.fromLngLat(12.0, 55.0),
+                            Point.fromLngLat(12.1, 55.1),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
 
     private fun longitudeOffsetDegrees(
         meters: Double,

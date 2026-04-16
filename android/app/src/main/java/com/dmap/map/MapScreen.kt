@@ -97,6 +97,7 @@ fun MapScreen(
     val mapPresentation = remember { MapPresentationConfig.denmark() }
     val markerController = remember(context) { SelectedPlaceMarkerController(context) }
     val ortofotoLayerController = remember { OrtofotoLayerController() }
+    val areaHighlightController = remember { SelectedAreaHighlightController() }
     val poiHitDetector = remember(context) {
         RenderedPoiHitDetector(context.resources.displayMetrics.density)
     }
@@ -231,6 +232,10 @@ fun MapScreen(
                 tileUrl = uiState.imageryTileUrl,
                 onFailure = viewModel::onImageryLayerFailed,
             )
+            areaHighlightController.renderSelectedArea(
+                style,
+                uiState.searchUiState.selectedAreaOutline,
+            )
             markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
             viewModel.onStyleLoaded()
             if (uiState.locationPermissionState == LocationPermissionState.Granted) {
@@ -250,6 +255,10 @@ fun MapScreen(
             baseLayer = uiState.mapBaseLayer,
             tileUrl = uiState.imageryTileUrl,
             onFailure = viewModel::onImageryLayerFailed,
+        )
+        areaHighlightController.renderSelectedArea(
+            style,
+            uiState.searchUiState.selectedAreaOutline,
         )
         markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
     }
@@ -279,8 +288,13 @@ fun MapScreen(
         }
     }
 
-    LaunchedEffect(currentStyle, uiState.searchUiState.selectedPlace) {
+    LaunchedEffect(
+        currentStyle,
+        uiState.searchUiState.selectedPlace,
+        uiState.searchUiState.selectedAreaOutline,
+    ) {
         val style = currentStyle ?: return@LaunchedEffect
+        areaHighlightController.renderSelectedArea(style, uiState.searchUiState.selectedAreaOutline)
         markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
     }
 

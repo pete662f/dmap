@@ -93,6 +93,7 @@ def main() -> int:
         })
 
     def patch_poi_z14(layer):
+        layer["minzoom"] = 13
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 1], ["<", "rank", 4]]
         layer["layout"]["text-font"] = ["Roboto Medium"]
         layer["layout"]["text-size"] = 11.5
@@ -105,6 +106,7 @@ def main() -> int:
         })
 
     def patch_poi_z15(layer):
+        layer["minzoom"] = 14
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 4], ["<", "rank", 12]]
         layer["layout"]["text-font"] = ["Roboto Regular"]
         layer["layout"]["text-size"] = 11
@@ -117,6 +119,7 @@ def main() -> int:
         })
 
     def patch_poi_z16(layer):
+        layer["minzoom"] = 15
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 12]]
         layer["layout"]["text-font"] = ["Roboto Regular"]
         layer["layout"]["text-size"] = 10.5
