@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -76,6 +77,7 @@ import com.dmap.place.SelectedPlaceType
 import com.dmap.place.SearchResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.abs
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.gestures.MoveGestureDetector
@@ -103,6 +105,7 @@ fun MapScreen(
 
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var currentStyle by remember { mutableStateOf<Style?>(null) }
+    var currentBearing by remember { mutableStateOf(0.0) }
     var searchFocused by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -141,11 +144,12 @@ fun MapScreen(
             mapLibreMap = map
             map.uiSettings.setRotateGesturesEnabled(true)
             map.uiSettings.setTiltGesturesEnabled(false)
-            map.uiSettings.setCompassEnabled(true)
+            map.uiSettings.setCompassEnabled(false)
             map.setMinZoomPreference(mapPresentation.minZoom)
             map.setMaxZoomPreference(mapPresentation.maxZoom)
             map.setLatLngBoundsForCameraTarget(mapPresentation.cameraBounds)
             map.cameraPosition = mapPresentation.defaultCamera
+            currentBearing = normalizedBearingDelta(map.cameraPosition.bearing)
             viewModel.updateSearchBias(
                 latitude = initialTarget.latitude,
                 longitude = initialTarget.longitude,
@@ -159,6 +163,7 @@ fun MapScreen(
 
         val cameraListener = MapLibreMap.OnCameraIdleListener {
             val camera = map.cameraPosition
+            currentBearing = normalizedBearingDelta(camera.bearing)
             val target = camera.target ?: return@OnCameraIdleListener
             viewModel.updateSearchBias(
                 latitude = target.latitude,
@@ -205,14 +210,19 @@ fun MapScreen(
             override fun onMove(detector: MoveGestureDetector) {}
             override fun onMoveEnd(detector: MoveGestureDetector) {}
         }
+        val cameraMoveListener = MapLibreMap.OnCameraMoveListener {
+            currentBearing = normalizedBearingDelta(map.cameraPosition.bearing)
+        }
 
         map.addOnCameraIdleListener(cameraListener)
+        map.addOnCameraMoveListener(cameraMoveListener)
         map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
         map.addOnMoveListener(moveListener)
 
         onDispose {
             map.removeOnCameraIdleListener(cameraListener)
+            map.removeOnCameraMoveListener(cameraMoveListener)
             map.removeOnMapClickListener(clickListener)
             map.removeOnMapLongClickListener(longClickListener)
             map.removeOnMoveListener(moveListener)
@@ -318,6 +328,32 @@ fun MapScreen(
             animationSpec = tween(durationMillis = 250),
             label = "locateButtonBottom",
         )
+        val mapControlEndPadding = 16.dp
+        val mapControlSize = 48.dp
+        val mapControlGap = 12.dp
+        val layerButtonBottom = locateButtonBottom + mapControlSize + mapControlGap
+        val compassBottom = layerButtonBottom + mapControlSize + mapControlGap
+        val northBearing = currentBearing
+        val compassNeedleRotation = -northBearing.toFloat()
+
+        if (abs(northBearing) > COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES) {
+            NorthArrowButton(
+                rotationDegrees = compassNeedleRotation,
+                onClick = {
+                    mapLibreMap?.animateCamera(
+                        CameraUpdateFactory.bearingTo(0.0),
+                        250,
+                    )
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(
+                        end = mapControlEndPadding,
+                        bottom = compassBottom,
+                    ),
+            )
+        }
 
         LayerToggleButton(
             baseLayer = uiState.mapBaseLayer,
@@ -326,8 +362,8 @@ fun MapScreen(
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(
-                    end = 16.dp,
-                    bottom = locateButtonBottom + 60.dp,
+                    end = mapControlEndPadding,
+                    bottom = layerButtonBottom,
                 ),
         )
 
@@ -354,7 +390,7 @@ fun MapScreen(
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(
-                    end = 16.dp,
+                    end = mapControlEndPadding,
                     bottom = locateButtonBottom,
                 ),
         )
@@ -474,6 +510,33 @@ private fun LayerToggleButton(
                     MaterialTheme.colorScheme.onSurface
                 },
                 modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NorthArrowButton(
+    rotationDegrees: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_north_arrow),
+                contentDescription = "Reset north",
+                tint = Color.Unspecified,
+                modifier = Modifier
+                    .size(28.dp)
+                    .rotate(rotationDegrees),
             )
         }
     }
@@ -893,6 +956,13 @@ private fun FullscreenBackendError(
             }
         }
     }
+}
+
+private const val COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES = 1.0
+
+private fun normalizedBearingDelta(bearing: Double): Double {
+    val normalized = ((bearing % 360.0) + 360.0) % 360.0
+    return if (normalized > 180.0) normalized - 360.0 else normalized
 }
 
 @Composable
