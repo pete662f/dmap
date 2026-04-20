@@ -20,11 +20,17 @@ Notes for this machine shape:
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-After the first run, you can reuse the cached source downloads:
+After the first run, bootstrap is incremental by default and reuses existing generated map, style, font, and Photon assets when the pinned inputs have not changed.
+
+Explicit heavier modes are available when you want to check or rebuild upstream-backed artifacts:
 
 ```bash
-NO_REFRESH=1 ./infra/scripts/bootstrap-denmark.sh
+REFRESH=1 ./infra/scripts/bootstrap-denmark.sh
+FORCE_REBUILD=1 ./infra/scripts/bootstrap-denmark.sh
+FORCE_REBUILD=1 REFRESH=1 ./infra/scripts/bootstrap-denmark.sh
 ```
+
+`REFRESH=1` checks upstream pinned/downloaded resources and refreshes source data where appropriate. `FORCE_REBUILD=1` rebuilds generated local outputs from cached sources where possible. Combining both performs a full heavy rebuild from refreshed sources. `NO_REFRESH=1` is still accepted for compatibility, but it is no longer needed for normal repeated bootstrap runs.
 
 What this does:
 
@@ -49,7 +55,8 @@ Recommended tuning knobs:
 
 - `PLANETILER_JAVA_XMX=8g` increases heap for larger local machines
 - `PLANETILER_THREADS=6` caps CPU usage if you do not want Planetiler using every logical core
-- `FORCE_REBUILD=1` deletes the current Denmark `.mbtiles` and regenerates it
+- `REFRESH=1` checks upstream pinned/downloaded resources instead of using only local cached artifacts
+- `FORCE_REBUILD=1` deletes generated local outputs and regenerates them
 
 ### Apple Silicon notes
 

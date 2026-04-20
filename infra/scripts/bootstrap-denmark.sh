@@ -6,6 +6,7 @@ INFRA_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 source "${SCRIPT_DIR}/load-env.sh"
 dmap_load_env
+source "${SCRIPT_DIR}/bootstrap-common.sh"
 source "${INFRA_DIR}/versions.env"
 
 CACHE_DIR="${INFRA_DIR}/.cache"
@@ -16,8 +17,8 @@ OUTPUT_MBTILES="${INFRA_DIR}/data/tiles/${DENMARK_MBTILES}"
 OUTPUT_OSM_DIR="${INFRA_DIR}/data/osm"
 
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
-NO_REFRESH="${NO_REFRESH:-0}"
 PLANETILER_JAVA_XMX="${PLANETILER_JAVA_XMX:-6g}"
+dmap_normalize_refresh_flags
 
 resolve_threads() {
   if [[ -n "${PLANETILER_THREADS:-}" ]]; then
@@ -46,7 +47,6 @@ ensure_docker() {
 }
 
 mkdir -p "${CACHE_DIR}" "${INFRA_DIR}/data/tiles" "${OUTPUT_OSM_DIR}" "${PLANETILER_OUTPUT_DIR}" "${PLANETILER_SOURCES_DIR}"
-ensure_docker
 
 PLANETILER_THREADS="$(resolve_threads)"
 PLANETILER_OUTPUT_MBTILES="${PLANETILER_OUTPUT_DIR}/${DENMARK_MBTILES}"
@@ -56,6 +56,8 @@ if [[ "${FORCE_REBUILD}" == "1" ]]; then
 fi
 
 if [[ ! -f "${OUTPUT_MBTILES}" ]]; then
+  ensure_docker
+
   echo "==> Building ${DENMARK_MBTILES} with Planetiler OpenMapTiles profile"
   echo "==> Docker image: ${PLANETILER_IMAGE}"
   echo "==> Threads: ${PLANETILER_THREADS}"
@@ -74,10 +76,10 @@ if [[ ! -f "${OUTPUT_MBTILES}" ]]; then
     --force=true
   )
 
-  if [[ "${NO_REFRESH}" == "1" ]]; then
-    planetiler_args+=(--refresh_sources=false)
-  else
+  if [[ "${REFRESH}" == "1" ]] || ! find "${PLANETILER_SOURCES_DIR}" -mindepth 1 -print -quit | grep -q .; then
     planetiler_args+=(--refresh_sources=true)
+  else
+    planetiler_args+=(--refresh_sources=false)
   fi
 
   docker "${planetiler_args[@]}"
