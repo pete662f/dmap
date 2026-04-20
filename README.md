@@ -92,6 +92,8 @@ Optional validation:
 ./infra/scripts/verify-backend.sh
 ```
 
+The verification script checks `localhost` by default. `DMAP_HOST_IP` is only used to compile physical-device Android backend URLs, so it does not make local verification target your LAN IP unless you pass explicit URLs.
+
 ### 3. Run the Android app
 
 Emulator defaults are already configured:

@@ -35,18 +35,18 @@ dmap_load_env() {
       continue
     fi
 
-	    key="${line%%=*}"
-	    value="${line#*=}"
-	    key="${key%"${key##*[![:space:]]}"}"
-	    value="${value#"${value%%[![:space:]]*}"}"
-	    value="${value%"${value##*[![:space:]]}"}"
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key%"${key##*[![:space:]]}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
 
-	    if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-	      echo "Skipping invalid .env key: ${key}" >&2
-	      continue
-	    fi
+    if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      echo "Skipping invalid .env key: ${key}" >&2
+      continue
+    fi
 
-	    if [[ ${#value} -ge 2 ]]; then
+    if [[ ${#value} -ge 2 ]]; then
       first="${value:0:1}"
       last="${value: -1}"
       if [[ ( "${first}" == '"' && "${last}" == '"' ) || ( "${first}" == "'" && "${last}" == "'" ) ]]; then
@@ -71,8 +71,16 @@ dmap_resolve_url() {
     return
   fi
 
-  if [[ -n "${DMAP_HOST_IP:-}" ]]; then
-    printf 'http://%s:%s\n' "${DMAP_HOST_IP}" "${port}"
+  dmap_resolve_bound_url "${port}" "${fallback_host}"
+}
+
+dmap_resolve_bound_url() {
+  local port="$1"
+  local fallback_host="${2:-localhost}"
+  local bind_host="${DMAP_BIND_HOST:-}"
+
+  if [[ -n "${bind_host}" && "${bind_host}" != "0.0.0.0" && "${bind_host}" != "127.0.0.1" && "${bind_host}" != "localhost" ]]; then
+    printf 'http://%s:%s\n' "${bind_host}" "${port}"
     return
   fi
 

@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/load-env.sh"
 dmap_load_env
 
-MAP_BASE_URL="$(dmap_resolve_url DMAP_BACKEND_URL 8080 localhost)"
-SEARCH_BASE_URL="$(dmap_resolve_url DMAP_SEARCH_BACKEND_URL 8081 localhost)"
+MAP_BASE_URL="$(dmap_resolve_bound_url 8080 localhost)"
+SEARCH_BASE_URL="$(dmap_resolve_bound_url 8081 localhost)"
 PHOTON_CONTAINER="${PHOTON_CONTAINER:-dmap2-photon}"
 REQUESTS="${REQUESTS:-40}"
 SEARCH_CONCURRENCIES="${SEARCH_CONCURRENCIES:-1,4,8}"

@@ -118,7 +118,7 @@ Without `DMAP_ORTHOFOTO_TOKEN_FILE` or `DMAP_ORTHOFOTO_TOKEN`, the proxy still s
 
 The verification script checks the tile backend, Photon search backend, and Ortofoto proxy health.
 If `DMAP_ORTHOFOTO_TOKEN_FILE` or `DMAP_ORTHOFOTO_TOKEN` is set, it also checks one Ortofoto tile request.
-When no explicit URLs are passed, it resolves backend URLs from the repo root `.env`.
+When no explicit URLs are passed, it verifies `localhost` by default. `DMAP_HOST_IP` is for Android build config, not local backend verification. To verify a backend bound to a concrete LAN IP, set `DMAP_BIND_HOST` to that IP or pass explicit URLs as script arguments.
 
 ### Benchmark the backend
 

@@ -16,6 +16,7 @@ services:
     build:
       context: ./services/photon
     container_name: dmap2-photon
+    user: "1001:1001"
     ports:
       - "${DMAP_BIND_HOST:-127.0.0.1}:8081:2322"
     cap_drop:
