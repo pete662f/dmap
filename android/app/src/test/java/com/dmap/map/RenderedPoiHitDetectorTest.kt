@@ -124,7 +124,7 @@ class RenderedPoiHitDetectorTest {
         assertEquals("Botanisk Have", selected?.place?.title)
         assertEquals("Park", selected?.place?.categoryHint)
         assertEquals(com.dmap.place.PlaceKind.Poi, selected?.place?.kind)
-        assertNotNull(selected?.areaOutline)
+        assertNotNull(selected?.areaHighlight)
     }
 
     @Test
@@ -185,7 +185,7 @@ class RenderedPoiHitDetectorTest {
     }
 
     @Test
-    fun `converts polygon rings to line outline`() {
+    fun `converts polygon to fill and line outline`() {
         val polygon = Polygon.fromLngLats(
             listOf(
                 squareRing(12.0, 55.0, 0.04),
@@ -193,17 +193,19 @@ class RenderedPoiHitDetectorTest {
             ),
         )
 
-        val outline = AreaOutlineGeometry.fromGeometry(polygon)
+        val highlight = AreaHighlightGeometry.fromGeometry(polygon)
 
-        assertNotNull(outline)
-        assertEquals(2, outline?.features()?.size)
-        outline?.features()?.forEach { feature ->
+        assertNotNull(highlight)
+        assertEquals(1, highlight?.fillGeometry?.features()?.size)
+        assertTrue(highlight?.fillGeometry?.features()?.single()?.geometry() is Polygon)
+        assertEquals(2, highlight?.outlineGeometry?.features()?.size)
+        highlight?.outlineGeometry?.features()?.forEach { feature ->
             assertTrue(feature.geometry() is LineString)
         }
     }
 
     @Test
-    fun `converts multipolygon to line outline`() {
+    fun `converts multipolygon to fill and line outline`() {
         val multiPolygon = MultiPolygon.fromLngLats(
             listOf(
                 listOf(squareRing(12.0, 55.0, 0.01)),
@@ -211,13 +213,37 @@ class RenderedPoiHitDetectorTest {
             ),
         )
 
-        val outline = AreaOutlineGeometry.fromGeometry(multiPolygon)
+        val highlight = AreaHighlightGeometry.fromGeometry(multiPolygon)
 
-        assertNotNull(outline)
-        assertEquals(2, outline?.features()?.size)
-        outline?.features()?.forEach { feature ->
+        assertNotNull(highlight)
+        assertEquals(1, highlight?.fillGeometry?.features()?.size)
+        assertTrue(highlight?.fillGeometry?.features()?.single()?.geometry() is MultiPolygon)
+        assertEquals(2, highlight?.outlineGeometry?.features()?.size)
+        highlight?.outlineGeometry?.features()?.forEach { feature ->
             assertTrue(feature.geometry() is LineString)
         }
+    }
+
+    @Test
+    fun `sankt annae school polygon preserves outline coordinates`() {
+        val ring = listOf(
+            Point.fromLngLat(12.5233249, 55.6556976),
+            Point.fromLngLat(12.5261198, 55.6559427),
+            Point.fromLngLat(12.5256732, 55.6574616),
+            Point.fromLngLat(12.5239633, 55.6573409),
+            Point.fromLngLat(12.5241564, 55.6566206),
+            Point.fromLngLat(12.5240115, 55.6564844),
+            Point.fromLngLat(12.5232015, 55.6564209),
+            Point.fromLngLat(12.5233249, 55.6556976),
+        )
+        val polygon = Polygon.fromLngLats(listOf(ring))
+
+        val highlight = AreaHighlightGeometry.fromGeometry(polygon)
+        val outline = highlight?.outlineGeometry?.features()?.single()?.geometry() as? LineString
+
+        assertNotNull(highlight)
+        assertNotNull(outline)
+        assertEquals(ring, outline?.coordinates())
     }
 
     @Test
@@ -250,7 +276,7 @@ class RenderedPoiHitDetectorTest {
         )
 
         assertEquals("Botanisk Have", selection?.place?.title)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     @Test
@@ -285,7 +311,7 @@ class RenderedPoiHitDetectorTest {
 
         assertNotNull(selection)
         assertEquals("Parking", selection?.place?.title)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     @Test
@@ -321,7 +347,7 @@ class RenderedPoiHitDetectorTest {
 
         assertNotNull(selection)
         assertEquals("Parking", selection?.place?.title)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     @Test
@@ -361,7 +387,7 @@ class RenderedPoiHitDetectorTest {
         )
 
         assertNotNull(selection)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
         assertTrue(legacyQueries.isEmpty())
     }
 
@@ -397,7 +423,7 @@ class RenderedPoiHitDetectorTest {
         )
 
         assertNotNull(selection)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
         assertEquals("dmap_poi_area_hitbox", areaQueries.first())
         assertTrue("dmap_poi_area_hitbox" in areaQueries)
         assertTrue("park" in areaQueries)
@@ -433,7 +459,7 @@ class RenderedPoiHitDetectorTest {
         )
 
         assertEquals("Cafe Example", selection?.place?.title)
-        assertNull(selection?.areaOutline)
+        assertNull(selection?.areaHighlight)
     }
 
     @Test
@@ -512,7 +538,7 @@ class RenderedPoiHitDetectorTest {
 
         assertNotNull(selection)
         assertEquals("Botanisk Have", selection?.place?.title)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     @Test
@@ -548,7 +574,7 @@ class RenderedPoiHitDetectorTest {
 
         assertNotNull(selection)
         assertEquals("Cafe Example", selection?.place?.title)
-        assertNull(selection?.areaOutline)
+        assertNull(selection?.areaHighlight)
     }
 
     @Test
@@ -676,7 +702,7 @@ class RenderedPoiHitDetectorTest {
 
         assertNotNull(selection)
         assertEquals("Botanisk Have", selection?.place?.title)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     @Test
@@ -710,7 +736,7 @@ class RenderedPoiHitDetectorTest {
         assertNotNull(selection)
         assertEquals("Aarhus Universitetshospital", selection?.place?.title)
         assertEquals("Hospital", selection?.place?.categoryHint)
-        assertNotNull(selection?.areaOutline)
+        assertNotNull(selection?.areaHighlight)
     }
 
     private fun pointFeature(

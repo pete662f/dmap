@@ -25,6 +25,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapViewModelCoordinateSelectionTest {
@@ -364,7 +365,7 @@ class MapViewModelCoordinateSelectionTest {
     }
 
     @Test
-    fun `rendered poi stores area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+    fun `rendered poi stores area highlight`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
         val tappedPoi = PlaceSummary(
             id = "area:park:Botanisk Have:55.6869:12.5738",
             title = "Botanisk Have",
@@ -374,21 +375,21 @@ class MapViewModelCoordinateSelectionTest {
             kind = PlaceKind.Poi,
             categoryHint = "Park",
         )
-        val areaOutline = sampleAreaOutline()
+        val areaHighlight = sampleAreaHighlight()
         val viewModel = createViewModel(FakeSearchService())
 
-        viewModel.selectRenderedPoi(RenderedPoiSelection(tappedPoi, areaOutline))
+        viewModel.selectRenderedPoi(RenderedPoiSelection(tappedPoi, areaHighlight))
         runCurrent()
 
         val state = viewModel.uiState.value.searchUiState
         assertEquals(tappedPoi, state.selectedPlace?.place)
-        assertSame(areaOutline, state.selectedAreaOutline)
+        assertSame(areaHighlight, state.selectedAreaHighlight)
     }
 
     @Test
-    fun `search result clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+    fun `search result clears area highlight`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
         val viewModel = createViewModel(FakeSearchService())
-        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaHighlight()))
         runCurrent()
 
         viewModel.selectSearchResult(
@@ -405,13 +406,13 @@ class MapViewModelCoordinateSelectionTest {
             ),
         )
 
-        assertNull(viewModel.uiState.value.searchUiState.selectedAreaOutline)
+        assertNull(viewModel.uiState.value.searchUiState.selectedAreaHighlight)
     }
 
     @Test
-    fun `long press clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+    fun `long press clears area highlight`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
         val viewModel = createViewModel(FakeSearchService())
-        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaHighlight()))
         runCurrent()
 
         viewModel.selectCoordinateFromLongPress(
@@ -419,20 +420,20 @@ class MapViewModelCoordinateSelectionTest {
             latitude = 55.6761,
         )
 
-        assertNull(viewModel.uiState.value.searchUiState.selectedAreaOutline)
+        assertNull(viewModel.uiState.value.searchUiState.selectedAreaHighlight)
     }
 
     @Test
-    fun `clear selection clears area outline`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
+    fun `clear selection clears area highlight`() = runTest(mainDispatcherRule.dispatcher.scheduler) {
         val viewModel = createViewModel(FakeSearchService())
-        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaOutline()))
+        viewModel.selectRenderedPoi(RenderedPoiSelection(samplePoi(), sampleAreaHighlight()))
         runCurrent()
 
         viewModel.clearSelectedPlace()
 
         val state = viewModel.uiState.value.searchUiState
         assertNull(state.selectedPlace)
-        assertNull(state.selectedAreaOutline)
+        assertNull(state.selectedAreaHighlight)
     }
 
     private fun createViewModel(searchService: SearchService): MapViewModel {
@@ -458,17 +459,19 @@ class MapViewModelCoordinateSelectionTest {
         )
     }
 
-    private fun sampleAreaOutline(): FeatureCollection {
-        return FeatureCollection.fromFeatures(
-            arrayOf(
-                Feature.fromGeometry(
-                    LineString.fromLngLats(
-                        listOf(
-                            Point.fromLngLat(12.0, 55.0),
-                            Point.fromLngLat(12.1, 55.1),
-                        ),
-                    ),
-                ),
+    private fun sampleAreaHighlight(): SelectedAreaHighlight {
+        val ring = listOf(
+            Point.fromLngLat(12.0, 55.0),
+            Point.fromLngLat(12.1, 55.0),
+            Point.fromLngLat(12.1, 55.1),
+            Point.fromLngLat(12.0, 55.0),
+        )
+        return SelectedAreaHighlight(
+            fillGeometry = FeatureCollection.fromFeatures(
+                arrayOf(Feature.fromGeometry(Polygon.fromLngLats(listOf(ring)))),
+            ),
+            outlineGeometry = FeatureCollection.fromFeatures(
+                arrayOf(Feature.fromGeometry(LineString.fromLngLats(ring))),
             ),
         )
     }
