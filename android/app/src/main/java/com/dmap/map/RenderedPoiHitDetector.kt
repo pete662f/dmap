@@ -87,7 +87,7 @@ class RenderedPoiHitDetector(
             if (selected != null) {
                 return RenderedPoiSelection(
                     place = selected.place,
-                    areaOutline = chooseAreaOutlineForPointPoi(
+                    areaHighlight = chooseAreaHighlightForPointPoi(
                         selected = selected,
                         areaFeaturesByLayer = areaFeaturesByLayer,
                         tapLatLng = tapLatLng,
@@ -182,7 +182,7 @@ class RenderedPoiHitDetector(
         if (layerId !in AREA_POI_LAYER_IDS) return null
 
         val geometry = feature.geometry() ?: return null
-        val areaOutline = AreaOutlineGeometry.fromGeometry(geometry) ?: return null
+        val areaHighlight = AreaHighlightGeometry.fromGeometry(geometry) ?: return null
         val name = firstNonBlank(
             feature.stringProperty("name"),
             feature.stringProperty("name:da"),
@@ -232,7 +232,7 @@ class RenderedPoiHitDetector(
                 kind = PlaceKind.Poi,
                 categoryHint = category,
             ),
-            areaOutline = areaOutline,
+            areaHighlight = areaHighlight,
         )
     }
 
@@ -287,11 +287,11 @@ class RenderedPoiHitDetector(
         )
     }
 
-    private fun chooseAreaOutlineForPointPoi(
+    private fun chooseAreaHighlightForPointPoi(
         selected: PoiCandidate,
         areaFeaturesByLayer: (String, Point) -> List<Feature>,
         tapLatLng: LatLng,
-    ): org.maplibre.geojson.FeatureCollection? {
+    ): SelectedAreaHighlight? {
         val hitboxCandidates = queryAreaCandidates(
             layerIds = POI_AREA_HITBOX_LAYER_IDS,
             queryFeatures = { layerId ->
@@ -305,7 +305,7 @@ class RenderedPoiHitDetector(
             pointSubclass = selected.poiSubclass,
             candidates = hitboxCandidates,
         )
-        if (hitboxMatch != null) return hitboxMatch.areaOutline
+        if (hitboxMatch != null) return hitboxMatch.areaHighlight
 
         val fallbackCandidates = queryAreaCandidates(
             layerIds = LEGACY_AREA_POI_LAYER_IDS,
@@ -319,7 +319,7 @@ class RenderedPoiHitDetector(
             pointClass = selected.poiClass,
             pointSubclass = selected.poiSubclass,
             candidates = fallbackCandidates,
-        )?.areaOutline
+        )?.areaHighlight
     }
 
     private fun chooseBestAreaCandidate(candidates: List<AreaCandidate>): AreaCandidate? {
@@ -478,7 +478,7 @@ class RenderedPoiHitDetector(
         val subclass: String?,
         val areaMeters: Double?,
         val place: PlaceSummary,
-        val areaOutline: org.maplibre.geojson.FeatureCollection,
+        val areaHighlight: SelectedAreaHighlight,
     )
 
     companion object {

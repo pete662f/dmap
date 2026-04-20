@@ -88,7 +88,7 @@ docker run --rm \
   -v "${WORK_DIR}:/work" \
   -v "${INFRA_DIR}/data/tiles:/output" \
   "${IMAGE_TAG}" \
-  -lc "python3 /app/extract_poi_area_geojson.py '/input/$(basename "${INPUT_PBF_PATH}")' /work/poi-areas.geojsonseq && tippecanoe --force --layer=poi_area --minimum-zoom=12 --maximum-zoom=14 --extend-zooms-if-still-dropping --no-feature-limit --no-tile-size-limit --read-parallel --output='/output/${POI_AREAS_MBTILES}' /work/poi-areas.geojsonseq"
+  -lc "python3 /app/extract_poi_area_geojson.py '/input/$(basename "${INPUT_PBF_PATH}")' /work/poi-areas.geojsonseq && tippecanoe --force --layer=poi_area --minimum-zoom=12 --maximum-zoom=16 --extend-zooms-if-still-dropping --no-feature-limit --no-tile-size-limit --no-line-simplification --no-tiny-polygon-reduction-at-maximum-zoom --no-clipping --read-parallel --output='/output/${POI_AREAS_MBTILES}' /work/poi-areas.geojsonseq"
 
 feature_count="$(wc -l < "${GEOJSONSEQ}" | tr -d ' ')"
 echo "==> POI area features: ${feature_count}"

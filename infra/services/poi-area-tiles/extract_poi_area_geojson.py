@@ -255,6 +255,8 @@ def run_self_test() -> int:
     cases = [
         ({"amenity": "parking"}, AreaClassification("parking", "parking", "Parking")),
         ({"amenity": "bicycle_parking"}, AreaClassification("bicycle_parking", "bicycle_parking", "Bicycle Parking")),
+        ({"amenity": "school"}, AreaClassification("school", "school", "School")),
+        ({"amenity": "school", "building": "school"}, AreaClassification("school", "school", "School")),
         ({"leisure": "park"}, AreaClassification("park", "park", "Park")),
         ({"landuse": "residential"}, None),
         ({"building": "yes"}, None),
