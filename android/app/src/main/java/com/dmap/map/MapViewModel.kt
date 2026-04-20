@@ -247,6 +247,7 @@ class MapViewModel(
                         type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.Search,
                     ),
+                    selectedAreaOutline = null,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
                 isCenteredOnUser = false,
@@ -254,9 +255,10 @@ class MapViewModel(
         }
     }
 
-    fun selectRenderedPoi(place: PlaceSummary) {
+    fun selectRenderedPoi(selection: RenderedPoiSelection) {
         searchQuery.value = ""
         val selectionId = nextSelectionId++
+        val place = selection.place
         _uiState.update { state ->
             state.copy(
                 searchUiState = state.searchUiState.copy(
@@ -270,6 +272,7 @@ class MapViewModel(
                         type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.PoiTap,
                     ),
+                    selectedAreaOutline = selection.areaOutline,
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
@@ -327,6 +330,7 @@ class MapViewModel(
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     selectedPlace = null,
+                    selectedAreaOutline = null,
                     isEnrichingPlace = false,
                 ),
             )
@@ -349,6 +353,7 @@ class MapViewModel(
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     selectedPlace = initialSelection,
+                    selectedAreaOutline = null,
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = newMessage(

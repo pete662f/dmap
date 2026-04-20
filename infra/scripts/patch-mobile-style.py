@@ -16,6 +16,25 @@ def set_layer_property(style, layer_id, update_fn):
     raise KeyError(f"Missing style layer: {layer_id}")
 
 
+def upsert_layer_before(style, layer, before_layer_ids):
+    style["layers"] = [
+        existing
+        for existing in style["layers"]
+        if existing.get("id") != layer["id"]
+    ]
+
+    before_ids = set(before_layer_ids)
+    insert_at = next(
+        (
+            index
+            for index, existing in enumerate(style["layers"])
+            if existing.get("id") in before_ids
+        ),
+        len(style["layers"]),
+    )
+    style["layers"].insert(insert_at, layer)
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("Usage: patch-mobile-style.py /path/to/style.json", file=sys.stderr)
@@ -26,6 +45,11 @@ def main() -> int:
 
     style.setdefault("metadata", {})
     style["metadata"]["dmap:style_variant"] = "mobile-m1"
+    style.setdefault("sources", {})
+    style["sources"]["dmap_poi_areas"] = {
+        "type": "vector",
+        "url": "mbtiles://{poi_areas}",
+    }
 
     set_layer_property(style, "background", lambda layer: layer["paint"].update({
         "background-color": "rgb(242,239,233)",
@@ -93,6 +117,7 @@ def main() -> int:
         })
 
     def patch_poi_z14(layer):
+        layer["minzoom"] = 13
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 1], ["<", "rank", 4]]
         layer["layout"]["text-font"] = ["Roboto Medium"]
         layer["layout"]["text-size"] = 11.5
@@ -105,6 +130,7 @@ def main() -> int:
         })
 
     def patch_poi_z15(layer):
+        layer["minzoom"] = 14
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 4], ["<", "rank", 12]]
         layer["layout"]["text-font"] = ["Roboto Regular"]
         layer["layout"]["text-size"] = 11
@@ -117,6 +143,7 @@ def main() -> int:
         })
 
     def patch_poi_z16(layer):
+        layer["minzoom"] = 15
         layer["filter"] = ["all", ["==", "$type", "Point"], [">=", "rank", 12]]
         layer["layout"]["text-font"] = ["Roboto Regular"]
         layer["layout"]["text-size"] = 10.5
@@ -132,6 +159,31 @@ def main() -> int:
     set_layer_property(style, "poi_z14", patch_poi_z14)
     set_layer_property(style, "poi_z15", patch_poi_z15)
     set_layer_property(style, "poi_z16", patch_poi_z16)
+
+    upsert_layer_before(
+        style,
+        {
+            "id": "dmap_poi_area_hitbox",
+            "type": "fill",
+            "source": "dmap_poi_areas",
+            "source-layer": "poi_area",
+            "minzoom": 12,
+            "paint": {
+                "fill-color": "#000000",
+                "fill-opacity": 0.001,
+            },
+        },
+        [
+            "poi_transit",
+            "poi_z14",
+            "poi_z15",
+            "poi_z16",
+            "road_label",
+            "place_village",
+            "place_town",
+            "place_city",
+        ],
+    )
 
     def patch_road_label(layer):
         layer["minzoom"] = 14

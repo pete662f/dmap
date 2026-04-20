@@ -23,6 +23,9 @@
   "data": {
     "openmaptiles": {
       "mbtiles": "data/tiles/denmark.mbtiles"
+    },
+    "poi_areas": {
+      "mbtiles": "data/tiles/denmark-poi-areas.mbtiles"
     }
   }
 }

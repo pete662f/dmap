@@ -99,6 +99,7 @@ fun MapScreen(
     val mapPresentation = remember { MapPresentationConfig.denmark() }
     val markerController = remember(context) { SelectedPlaceMarkerController(context) }
     val ortofotoLayerController = remember { OrtofotoLayerController() }
+    val areaHighlightController = remember { SelectedAreaHighlightController() }
     val poiHitDetector = remember(context) {
         RenderedPoiHitDetector(context.resources.displayMetrics.density)
     }
@@ -234,14 +235,6 @@ fun MapScreen(
         viewModel.onStyleLoading()
         map.setStyle(uiState.styleUrl) { style ->
             currentStyle = style
-            renderOrtofotoLayer(
-                controller = ortofotoLayerController,
-                style = style,
-                baseLayer = uiState.mapBaseLayer,
-                tileUrl = uiState.imageryTileUrl,
-                onFailure = viewModel::onImageryLayerFailed,
-            )
-            markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
             viewModel.onStyleLoaded()
             if (uiState.locationPermissionState == LocationPermissionState.Granted) {
                 appContainer.locationController.enableLocation(map, style)
@@ -261,7 +254,6 @@ fun MapScreen(
             tileUrl = uiState.imageryTileUrl,
             onFailure = viewModel::onImageryLayerFailed,
         )
-        markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
     }
 
     LaunchedEffect(uiState.locationPermissionState, mapLibreMap, currentStyle) {
@@ -292,6 +284,11 @@ fun MapScreen(
     LaunchedEffect(currentStyle, uiState.searchUiState.selectedPlace) {
         val style = currentStyle ?: return@LaunchedEffect
         markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
+    }
+
+    LaunchedEffect(currentStyle, uiState.searchUiState.selectedAreaOutline) {
+        val style = currentStyle ?: return@LaunchedEffect
+        areaHighlightController.renderSelectedArea(style, uiState.searchUiState.selectedAreaOutline)
     }
 
     LaunchedEffect(uiState.searchUiState.selectedPlace?.selectionId) {
