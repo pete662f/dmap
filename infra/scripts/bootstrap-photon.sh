@@ -28,12 +28,15 @@ mkdir -p "${ARTIFACTS_DIR}" "${OUTPUT_DIR}"
 download_if_needed() {
   local url="$1"
   local output="$2"
+  local tmp_output="${output}.tmp"
 
   if [[ -f "${output}" && "${NO_REFRESH}" == "1" ]]; then
     return
   fi
 
-  curl --fail --silent --show-error --location "${url}" --output "${output}"
+  rm -f "${tmp_output}"
+  curl --fail --silent --show-error --location "${url}" --output "${tmp_output}"
+  mv "${tmp_output}" "${output}"
 }
 
 remove_if_symlink() {
@@ -65,6 +68,29 @@ verify_md5() {
   [[ "${actual}" == "${expected}" ]]
 }
 
+verify_sha256_if_configured() {
+  local file="$1"
+  local expected="$2"
+  local actual
+
+  if [[ -z "${expected}" ]]; then
+    return 0
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "${file}" | awk '{print $1}')"
+  else
+    actual="$(sha256sum "${file}" | awk '{print $1}')"
+  fi
+
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "SHA256 verification failed for ${file}." >&2
+    echo "Expected: ${expected}" >&2
+    echo "Actual:   ${actual}" >&2
+    exit 1
+  fi
+}
+
 if [[ "${FORCE_REBUILD}" == "1" ]]; then
   rm -rf "${OUTPUT_DIR}/photon_data" "${OUTPUT_DIR}/photon.jar" "${DATASET_MARKER_FILE}"
 fi
@@ -81,6 +107,7 @@ remove_if_symlink "${DATASET_MARKER_FILE}" "Photon dataset marker"
 
 echo "==> Preparing Photon ${PHOTON_VERSION}"
 download_if_needed "${PHOTON_JAR_URL}" "${jar_target}"
+verify_sha256_if_configured "${jar_target}" "${PHOTON_JAR_SHA256:-}"
 download_if_needed "${PHOTON_DUMP_CHECKSUM_URL}" "${dump_checksum_file}"
 
 if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
@@ -90,6 +117,7 @@ if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   fi
 
   download_if_needed "${PHOTON_DUMP_URL}" "${dump_file}"
+  verify_sha256_if_configured "${dump_file}" "${PHOTON_DUMP_SHA256:-}"
 
   if ! verify_md5 "${dump_file}" "$(checksum_value "${dump_checksum_file}")"; then
     echo "Photon Denmark json dump checksum verification failed." >&2

@@ -66,6 +66,7 @@ needs_rebuild() {
 }
 
 INPUT_PBF_PATH="$(resolve_input_pbf)"
+INPUT_PBF_BASENAME="$(basename "${INPUT_PBF_PATH}")"
 
 mkdir -p "${WORK_DIR}" "${INFRA_DIR}/data/tiles"
 ensure_docker
@@ -84,11 +85,31 @@ docker build \
 
 echo "==> Extracting POI area polygons from ${INPUT_PBF_PATH}"
 docker run --rm \
+  --entrypoint python3 \
   -v "$(dirname "${INPUT_PBF_PATH}"):/input:ro" \
   -v "${WORK_DIR}:/work" \
+  "${IMAGE_TAG}" \
+  /app/extract_poi_area_geojson.py "/input/${INPUT_PBF_BASENAME}" /work/poi-areas.geojsonseq
+
+echo "==> Building POI area MBTiles"
+docker run --rm \
+  --entrypoint tippecanoe \
+  -v "${WORK_DIR}:/work:ro" \
   -v "${INFRA_DIR}/data/tiles:/output" \
   "${IMAGE_TAG}" \
-  -lc "python3 /app/extract_poi_area_geojson.py '/input/$(basename "${INPUT_PBF_PATH}")' /work/poi-areas.geojsonseq && tippecanoe --force --layer=poi_area --minimum-zoom=12 --maximum-zoom=16 --extend-zooms-if-still-dropping --no-feature-limit --no-tile-size-limit --no-line-simplification --no-tiny-polygon-reduction-at-maximum-zoom --no-clipping --read-parallel --output='/output/${POI_AREAS_MBTILES}' /work/poi-areas.geojsonseq"
+  --force \
+  --layer=poi_area \
+  --minimum-zoom=12 \
+  --maximum-zoom=16 \
+  --extend-zooms-if-still-dropping \
+  --no-feature-limit \
+  --no-tile-size-limit \
+  --no-line-simplification \
+  --no-tiny-polygon-reduction-at-maximum-zoom \
+  --no-clipping \
+  --read-parallel \
+  --output="/output/${POI_AREAS_MBTILES}" \
+  /work/poi-areas.geojsonseq
 
 feature_count="$(wc -l < "${GEOJSONSEQ}" | tr -d ' ')"
 echo "==> POI area features: ${feature_count}"

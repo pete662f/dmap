@@ -1,21 +1,38 @@
 'use strict';
 
 const http = require('node:http');
+const fs = require('node:fs');
+const { Readable } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
 const { URL } = require('node:url');
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_UPSTREAM_URL = 'https://api.dataforsyningen.dk/orto_foraar_webm_DAF';
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 8000;
 const MIN_ZOOM = 0;
 const MAX_ZOOM = 20;
 const BOUNDS = [2.47842, 53.015, 17.5578, 58.6403];
 const ATTRIBUTION = 'Klimadatastyrelsen / GeoDanmark Ortofoto, CC BY 4.0';
 
 function createServer(options = {}) {
-  const token = options.token ?? process.env.DMAP_ORTHOFOTO_TOKEN ?? '';
+  const token = readToken(options);
   const upstreamUrl = options.upstreamUrl ?? process.env.DMAP_ORTHOFOTO_UPSTREAM_URL ?? DEFAULT_UPSTREAM_URL;
+  const upstreamTimeoutMs = positiveInteger(
+    options.timeoutMs ?? process.env.DMAP_ORTHOFOTO_TIMEOUT_MS,
+    DEFAULT_UPSTREAM_TIMEOUT_MS,
+  );
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
 
   return http.createServer(async (req, res) => {
+    let timeout;
+    let timedOut = false;
+    const abortController = new AbortController();
+    const abortUpstream = () => {
+      if (!res.writableEnded) {
+        abortController.abort();
+      }
+    };
+
     try {
       if (req.method !== 'GET') {
         sendJson(res, 405, { error: 'method_not_allowed' });
@@ -49,21 +66,49 @@ function createServer(options = {}) {
       }
 
       const upstream = buildUpstreamTileUrl(upstreamUrl, token, tile);
-      const upstreamResponse = await fetchImpl(upstream);
+      timeout = setTimeout(() => {
+        timedOut = true;
+        abortController.abort();
+      }, upstreamTimeoutMs);
+      res.on('close', abortUpstream);
+
+      const upstreamResponse = await fetchImpl(upstream, {
+        signal: abortController.signal,
+      });
       if (!upstreamResponse.ok) {
         sendJson(res, upstreamResponse.status, { error: 'upstream_tile_error' });
         return;
       }
 
-      const body = Buffer.from(await upstreamResponse.arrayBuffer());
+      const contentType = upstreamResponse.headers.get('content-type') || 'image/jpeg';
+      if (!contentType.toLowerCase().startsWith('image/')) {
+        sendJson(res, 502, { error: 'invalid_upstream_tile' });
+        return;
+      }
+      if (!upstreamResponse.body) {
+        sendJson(res, 502, { error: 'invalid_upstream_tile' });
+        return;
+      }
+
       res.writeHead(200, {
-        'Content-Type': upstreamResponse.headers.get('content-type') || 'image/jpeg',
+        'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400',
       });
-      res.end(body);
+      await pipeline(Readable.fromWeb(upstreamResponse.body), res);
     } catch (error) {
+      if (timedOut || error.name === 'AbortError') {
+        if (!res.headersSent && !res.destroyed) {
+          sendJson(res, 504, { error: 'upstream_tile_timeout' });
+        }
+        return;
+      }
       console.error('ortofoto proxy request failed', error.message);
-      sendJson(res, 500, { error: 'proxy_error' });
+      if (!res.headersSent && !res.destroyed) {
+        sendJson(res, 500, { error: 'proxy_error' });
+      }
+    } finally {
+      clearTimeout(timeout);
+      res.off('close', abortUpstream);
     }
   });
 }
@@ -136,6 +181,31 @@ function buildUpstreamTileUrl(upstreamUrl, token, tile) {
   return url;
 }
 
+function readToken(options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'token')) {
+    return options.token ?? '';
+  }
+
+  const tokenFile = options.tokenFile ?? process.env.DMAP_ORTHOFOTO_TOKEN_FILE ?? '';
+  if (tokenFile.trim().length > 0) {
+    try {
+      return fs.readFileSync(tokenFile, 'utf8').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  return process.env.DMAP_ORTHOFOTO_TOKEN ?? '';
+}
+
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  if (Number.isSafeInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+}
+
 function sendJson(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -155,5 +225,6 @@ module.exports = {
   buildUpstreamTileUrl,
   createServer,
   parseTilePath,
+  readToken,
   tileJson,
 };

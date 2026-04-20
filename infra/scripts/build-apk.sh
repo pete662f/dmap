@@ -14,7 +14,6 @@ BUILD_TYPE="debug"
 CLEAN_BUILD=0
 MAP_BACKEND_URL="${DMAP_BACKEND_URL:-}"
 SEARCH_BACKEND_URL="${DMAP_SEARCH_BACKEND_URL:-}"
-ROUTING_BACKEND_URL="${DMAP_ROUTING_BACKEND_URL:-}"
 IMAGERY_BACKEND_URL="${DMAP_IMAGERY_BACKEND_URL:-}"
 
 usage() {
@@ -29,20 +28,29 @@ Options:
   --clean                     Run a clean build first
   --backend-url URL           Override dmap.backendUrl
   --search-backend-url URL    Override dmap.searchBackendUrl
-  --routing-backend-url URL   Override dmap.routingBackendUrl
   --imagery-backend-url URL   Override dmap.imageryBackendUrl
   -h, --help                  Show this help
 
 Environment variable fallbacks:
   DMAP_BACKEND_URL
   DMAP_SEARCH_BACKEND_URL
-  DMAP_ROUTING_BACKEND_URL
   DMAP_IMAGERY_BACKEND_URL
   ANDROID_HOME / ANDROID_SDK_ROOT
 
 Build config precedence:
   command-line overrides > android/local.properties > repo .env > defaults
 EOF
+}
+
+require_value() {
+  local flag="$1"
+  local value="${2:-}"
+
+  if [[ -z "${value}" || "${value}" == --* ]]; then
+    echo "Missing value for ${flag}" >&2
+    usage >&2
+    exit 1
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -60,18 +68,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --backend-url)
+      require_value "$1" "${2:-}"
       MAP_BACKEND_URL="${2:-}"
       shift 2
       ;;
     --search-backend-url)
+      require_value "$1" "${2:-}"
       SEARCH_BACKEND_URL="${2:-}"
       shift 2
       ;;
-    --routing-backend-url)
-      ROUTING_BACKEND_URL="${2:-}"
-      shift 2
-      ;;
     --imagery-backend-url)
+      require_value "$1" "${2:-}"
       IMAGERY_BACKEND_URL="${2:-}"
       shift 2
       ;;
@@ -117,8 +124,34 @@ infer_sdk_dir() {
   return 1
 }
 
+java_major_version() {
+  local java_home="$1"
+  local version_line version major
+
+  version_line="$("${java_home}/bin/java" -version 2>&1 | head -n 1)"
+  version="$(printf '%s\n' "${version_line}" | sed -n 's/.*version "\([^"]*\)".*/\1/p')"
+  major="${version%%.*}"
+  if [[ "${major}" == "1" ]]; then
+    version="${version#1.}"
+    major="${version%%.*}"
+  fi
+  printf '%s\n' "${major}"
+}
+
+is_supported_java_home() {
+  local java_home="$1"
+  local major
+
+  if [[ -z "${java_home}" || ! -x "${java_home}/bin/java" ]]; then
+    return 1
+  fi
+
+  major="$(java_major_version "${java_home}")"
+  [[ "${major}" == "17" || "${major}" == "21" ]]
+}
+
 infer_java_home() {
-  if [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+  if [[ -n "${JAVA_HOME:-}" ]] && is_supported_java_home "${JAVA_HOME}"; then
     printf '%s\n' "${JAVA_HOME}"
     return
   fi
@@ -141,9 +174,13 @@ infer_java_home() {
 
   if command -v java >/dev/null 2>&1; then
     local java_bin
+    local java_home
     java_bin="$(command -v java)"
-    printf '%s\n' "$(cd "$(dirname "${java_bin}")/.." && pwd)"
-    return
+    java_home="$(cd "$(dirname "${java_bin}")/.." && pwd)"
+    if is_supported_java_home "${java_home}"; then
+      printf '%s\n' "${java_home}"
+      return
+    fi
   fi
 
   return 1
@@ -172,9 +209,6 @@ if [[ -n "${MAP_BACKEND_URL}" ]]; then
 fi
 if [[ -n "${SEARCH_BACKEND_URL}" ]]; then
   GRADLE_ARGS+=("-Pdmap.searchBackendUrl=${SEARCH_BACKEND_URL}")
-fi
-if [[ -n "${ROUTING_BACKEND_URL}" ]]; then
-  GRADLE_ARGS+=("-Pdmap.routingBackendUrl=${ROUTING_BACKEND_URL}")
 fi
 if [[ -n "${IMAGERY_BACKEND_URL}" ]]; then
   GRADLE_ARGS+=("-Pdmap.imageryBackendUrl=${IMAGERY_BACKEND_URL}")

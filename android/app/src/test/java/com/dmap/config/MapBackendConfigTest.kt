@@ -40,6 +40,16 @@ class MapBackendConfigTest {
         assertNull(config.ortofotoTileUrl)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun `fromBaseUrl rejects blank required backend url`() {
+        MapBackendConfig.fromBaseUrl(baseUrl = " ")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `fromBaseUrl rejects non-http required backend url`() {
+        MapBackendConfig.fromBaseUrl(baseUrl = "file:///tmp/style")
+    }
+
     @Test
     fun `backend provider passes imagery build config into map config`() {
         val config = BackendUrlProvider.fromBuildConfig()

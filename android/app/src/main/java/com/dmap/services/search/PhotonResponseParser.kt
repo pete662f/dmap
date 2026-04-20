@@ -8,8 +8,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 internal object PhotonResponseParser {
     private val json = Json {
@@ -20,11 +21,11 @@ internal object PhotonResponseParser {
         payload: String,
         fallbackTitle: String? = null,
     ): List<SearchResult> {
-        val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull() ?: return emptyList()
-        val features = root["features"]?.jsonArray ?: JsonArray(emptyList())
+        val root = runCatching { json.parseToJsonElement(payload).objectOrNull() }.getOrNull() ?: return emptyList()
+        val features = root["features"].arrayOrNull() ?: JsonArray(emptyList())
 
         return features.mapNotNull { feature ->
-            parseFeature(feature.jsonObject, fallbackTitle)
+            parseFeature(feature.objectOrNull() ?: return@mapNotNull null, fallbackTitle)
         }.distinctBy { result ->
             listOf(
                 result.place.id,
@@ -40,12 +41,12 @@ internal object PhotonResponseParser {
         feature: JsonObject,
         fallbackTitle: String?,
     ): SearchResult? {
-        val coordinates = feature["geometry"]?.jsonObject?.get("coordinates")?.jsonArray ?: return null
+        val coordinates = feature["geometry"].objectOrNull()?.get("coordinates").arrayOrNull() ?: return null
         if (coordinates.size < 2) return null
 
         val longitude = coordinates[0].doubleOrNull() ?: return null
         val latitude = coordinates[1].doubleOrNull() ?: return null
-        val properties = feature["properties"]?.jsonObject ?: JsonObject(emptyMap())
+        val properties = feature["properties"].objectOrNull() ?: JsonObject(emptyMap())
 
         val type = properties.string("type")
         val osmKey = properties.string("osm_key")
@@ -142,15 +143,27 @@ internal object PhotonResponseParser {
     }
 
     private fun JsonObject.string(key: String): String? {
-        return this[key]?.contentOrNull()?.trim()?.ifBlank { null }
+        return this[key].stringOrNull()
     }
 
-    private fun JsonElement.contentOrNull(): String? {
-        return runCatching { toString().trim('"') }.getOrNull()
+    private fun JsonElement?.objectOrNull(): JsonObject? {
+        return this as? JsonObject
     }
 
-    private fun JsonElement.doubleOrNull(): Double? {
-        return contentOrNull()?.toDoubleOrNull()
+    private fun JsonElement?.arrayOrNull(): JsonArray? {
+        return this as? JsonArray
+    }
+
+    private fun JsonElement?.stringOrNull(): String? {
+        return (this as? JsonPrimitive)
+            ?.takeIf { it.isString }
+            ?.contentOrNull
+            ?.trim()
+            ?.ifBlank { null }
+    }
+
+    private fun JsonElement?.doubleOrNull(): Double? {
+        return (this as? JsonPrimitive)?.doubleOrNull
     }
 
     private fun firstNonBlank(vararg values: String?): String? {

@@ -24,6 +24,7 @@ class AppContainer(context: Context) {
             baseUrl = searchBaseUrl,
         )
     } ?: UnavailableSearchService()
+    // Routing remains intentionally stubbed for M2; backend URL config is reserved for the routing milestone.
     val routingService: RoutingService = StubRoutingService()
     val locationController: LocationController = LocationController(context.applicationContext)
     val mapStyleLoader: MapStyleLoader = MapStyleLoader(backendConfig)

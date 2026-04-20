@@ -53,42 +53,78 @@ fun configuredValue(
     localProperty: String,
     envValue: String?,
     defaultValue: String,
-): String = (findProperty(gradleProperty) as String?)
-    ?: localProperties.getProperty(localProperty)
-    ?: envValue
-    ?: defaultValue
+): String = listOf(
+    findProperty(gradleProperty) as String?,
+    localProperties.getProperty(localProperty),
+    envValue,
+    defaultValue,
+).firstNotNullOf { candidate ->
+    candidate?.trim()?.takeIf { it.isNotBlank() }
+}
 
 fun quoted(value: String): String = "\"${value}\""
+
+fun validateRequiredUrl(name: String, value: String): String {
+    val normalized = value.trim().removeSuffix("/")
+    require(normalized.isNotBlank()) {
+        "$name must not be blank."
+    }
+    require(normalized.startsWith("http://") || normalized.startsWith("https://")) {
+        "$name must start with http:// or https://."
+    }
+    return normalized
+}
+
+fun validateOptionalUrl(name: String, value: String): String {
+    val normalized = value.trim().removeSuffix("/")
+    if (normalized.isBlank()) return ""
+    require(normalized.startsWith("http://") || normalized.startsWith("https://")) {
+        "$name must start with http:// or https:// when configured."
+    }
+    return normalized
+}
 
 val dotEnv = loadDotEnv(repoRootDir.resolve(".env"))
 val dmapHostIp = dotEnv["DMAP_HOST_IP"]?.takeIf { it.isNotBlank() }
 
-val mapBackendUrl = configuredValue(
-    gradleProperty = "dmap.backendUrl",
-    localProperty = "dmap.backendUrl",
-    envValue = dotEnv["DMAP_BACKEND_URL"]?.takeIf { it.isNotBlank() },
-    defaultValue = dmapHostIp?.let { "http://$it:8080" } ?: "http://10.0.2.2:8080",
+val mapBackendUrl = validateRequiredUrl(
+    name = "dmap.backendUrl",
+    value = configuredValue(
+        gradleProperty = "dmap.backendUrl",
+        localProperty = "dmap.backendUrl",
+        envValue = dotEnv["DMAP_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+        defaultValue = dmapHostIp?.let { "http://$it:8080" } ?: "http://10.0.2.2:8080",
+    ),
 )
 
-val searchBackendUrl = configuredValue(
-    gradleProperty = "dmap.searchBackendUrl",
-    localProperty = "dmap.searchBackendUrl",
-    envValue = dotEnv["DMAP_SEARCH_BACKEND_URL"]?.takeIf { it.isNotBlank() },
-    defaultValue = dmapHostIp?.let { "http://$it:8081" } ?: "http://10.0.2.2:8081",
+val searchBackendUrl = validateOptionalUrl(
+    name = "dmap.searchBackendUrl",
+    value = configuredValue(
+        gradleProperty = "dmap.searchBackendUrl",
+        localProperty = "dmap.searchBackendUrl",
+        envValue = dotEnv["DMAP_SEARCH_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+        defaultValue = dmapHostIp?.let { "http://$it:8081" } ?: "http://10.0.2.2:8081",
+    ),
 )
 
-val routingBackendUrl = configuredValue(
-    gradleProperty = "dmap.routingBackendUrl",
-    localProperty = "dmap.routingBackendUrl",
-    envValue = dotEnv["DMAP_ROUTING_BACKEND_URL"]?.takeIf { it.isNotBlank() },
-    defaultValue = dmapHostIp?.let { "http://$it:8082" } ?: "",
+val routingBackendUrl = validateOptionalUrl(
+    name = "dmap.routingBackendUrl",
+    value = configuredValue(
+        gradleProperty = "dmap.routingBackendUrl",
+        localProperty = "dmap.routingBackendUrl",
+        envValue = dotEnv["DMAP_ROUTING_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+        defaultValue = dmapHostIp?.let { "http://$it:8082" } ?: "",
+    ),
 )
 
-val imageryBackendUrl = configuredValue(
-    gradleProperty = "dmap.imageryBackendUrl",
-    localProperty = "dmap.imageryBackendUrl",
-    envValue = dotEnv["DMAP_IMAGERY_BACKEND_URL"]?.takeIf { it.isNotBlank() },
-    defaultValue = dmapHostIp?.let { "http://$it:8083" } ?: "http://10.0.2.2:8083",
+val imageryBackendUrl = validateOptionalUrl(
+    name = "dmap.imageryBackendUrl",
+    value = configuredValue(
+        gradleProperty = "dmap.imageryBackendUrl",
+        localProperty = "dmap.imageryBackendUrl",
+        envValue = dotEnv["DMAP_IMAGERY_BACKEND_URL"]?.takeIf { it.isNotBlank() },
+        defaultValue = dmapHostIp?.let { "http://$it:8083" } ?: "http://10.0.2.2:8083",
+    ),
 )
 
 android {

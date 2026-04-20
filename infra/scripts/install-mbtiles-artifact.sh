@@ -25,4 +25,4 @@ cp "${SOURCE_MBTILES}" "${TARGET_MBTILES}"
 "${SCRIPT_DIR}/prepare-style-assets.sh"
 
 echo "Installed MBTiles artifact to ${TARGET_MBTILES}"
-echo "Run: docker compose -f ${INFRA_DIR}/compose.yaml up"
+echo "Run: ./infra/scripts/up-backend.sh"

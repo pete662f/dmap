@@ -193,6 +193,17 @@ class MapViewModel(
 
     fun toggleBaseLayer() {
         _uiState.update { state ->
+            if (state.mapBaseLayer == MapBaseLayer.Vector && state.imageryTileUrl.isNullOrBlank()) {
+                return@update state.copy(
+                    overlayMessage = newMessage(
+                        source = MapOverlaySource.Backend,
+                        tone = MapOverlayTone.Info,
+                        text = "Ortofoto imagery is not configured.",
+                        autoDismissMillis = 3_500L,
+                    ),
+                )
+            }
+
             state.copy(
                 mapBaseLayer = when (state.mapBaseLayer) {
                     MapBaseLayer.Vector -> MapBaseLayer.Ortofoto
@@ -207,13 +218,24 @@ class MapViewModel(
     }
 
     fun updateSearchQuery(query: String) {
+        val trimmedQuery = query.trim()
         searchQuery.value = query
         _uiState.update { state ->
+            val previousQuery = state.searchUiState.query.trim()
+            val shouldStartNewSearch = trimmedQuery.length >= 2 && trimmedQuery != previousQuery
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     query = query,
-                    status = if (query.trim().length < 2) SearchStatus.Idle else state.searchUiState.status,
-                    results = if (query.isBlank()) emptyList() else state.searchUiState.results,
+                    status = when {
+                        trimmedQuery.length < 2 -> SearchStatus.Idle
+                        shouldStartNewSearch -> SearchStatus.Loading
+                        else -> state.searchUiState.status
+                    },
+                    results = if (trimmedQuery.length < 2 || shouldStartNewSearch) {
+                        emptyList()
+                    } else {
+                        state.searchUiState.results
+                    },
                     errorMessage = null,
                 ),
             )
@@ -508,6 +530,8 @@ class MapViewModel(
                     )
                 }.onSuccess { results ->
                     _uiState.update { state ->
+                        if (state.searchUiState.query.trim() != query) return@update state
+
                         state.copy(
                             searchUiState = state.searchUiState.copy(
                                 status = if (results.isEmpty()) SearchStatus.Empty else SearchStatus.Results,
@@ -518,6 +542,8 @@ class MapViewModel(
                     }
                 }.onFailure {
                     _uiState.update { state ->
+                        if (state.searchUiState.query.trim() != query) return@update state
+
                         state.copy(
                             searchUiState = state.searchUiState.copy(
                                 status = SearchStatus.Error,
