@@ -40,7 +40,9 @@ This repo contains:
 ./infra/scripts/bootstrap-denmark.sh
 ```
 
-This is the heaviest step. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+This is the heaviest step on the first run. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+
+Bootstrap is incremental after that first run: repeated executions reuse existing generated map, style, font, and Photon assets when the pinned inputs have not changed.
 
 Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies a deterministic mobile tuning pass so the generated style is ready for the Android presentation.
 
@@ -170,7 +172,10 @@ The backend helper scripts use the same repo `.env` file:
 ## Commands
 
 - Bootstrap data and style assets: `./infra/scripts/bootstrap-denmark.sh`
-- Reuse cached downloads on repeat bootstrap: `NO_REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
+- Refresh upstream source checks: `REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
+- Rebuild generated local outputs from cached sources: `FORCE_REBUILD=1 ./infra/scripts/bootstrap-denmark.sh`
+- Full rebuild with refreshed upstream sources: `FORCE_REBUILD=1 REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
+- Legacy no-refresh mode, still accepted but no longer needed for normal repeats: `NO_REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
 - Tune Planetiler heap size: `PLANETILER_JAVA_XMX=8g ./infra/scripts/bootstrap-denmark.sh`
 - Tune Planetiler threads: `PLANETILER_THREADS=6 ./infra/scripts/bootstrap-denmark.sh`
 - Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`

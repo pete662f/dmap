@@ -6,6 +6,7 @@ INFRA_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 source "${SCRIPT_DIR}/load-env.sh"
 dmap_load_env
+source "${SCRIPT_DIR}/bootstrap-common.sh"
 source "${INFRA_DIR}/versions.env"
 
 CACHE_DIR="${INFRA_DIR}/.cache/photon"
@@ -14,7 +15,7 @@ OUTPUT_DIR="${INFRA_DIR}/data/search/photon"
 DATASET_MARKER_FILE="${OUTPUT_DIR}/.dataset-version"
 
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
-NO_REFRESH="${NO_REFRESH:-0}"
+dmap_normalize_refresh_flags
 
 PHOTON_JAR_FILE="photon-${PHOTON_VERSION}.jar"
 PHOTON_JAR_URL="https://github.com/komoot/photon/releases/download/${PHOTON_VERSION}/${PHOTON_JAR_FILE}"
@@ -30,7 +31,7 @@ download_if_needed() {
   local output="$2"
   local tmp_output="${output}.tmp"
 
-  if [[ -f "${output}" && "${NO_REFRESH}" == "1" ]]; then
+  if [[ -f "${output}" && "${REFRESH}" != "1" ]]; then
     return
   fi
 
@@ -52,6 +53,39 @@ remove_if_symlink() {
 checksum_value() {
   local checksum_file="$1"
   awk '{print $1}' "${checksum_file}"
+}
+
+marker_value() {
+  local key="$1"
+  local marker_file="$2"
+
+  if [[ ! -f "${marker_file}" ]]; then
+    return 1
+  fi
+
+  awk -F= -v key="${key}" '$1 == key {print substr($0, length(key) + 2); exit}' "${marker_file}"
+}
+
+dataset_marker_content() {
+  local dump_md5="$1"
+
+  cat <<EOF
+photon_version=${PHOTON_VERSION}
+dump_series=${PHOTON_DUMP_SERIES}
+dump_md5=${dump_md5}
+EOF
+}
+
+marker_matches_version() {
+  [[ "$(marker_value "photon_version" "${DATASET_MARKER_FILE}" || true)" == "${PHOTON_VERSION}" ]] &&
+    [[ "$(marker_value "dump_series" "${DATASET_MARKER_FILE}" || true)" == "${PHOTON_DUMP_SERIES}" ]]
+}
+
+marker_matches_dump_md5() {
+  local expected_md5="$1"
+
+  marker_matches_version &&
+    [[ "$(marker_value "dump_md5" "${DATASET_MARKER_FILE}" || true)" == "${expected_md5}" ]]
 }
 
 verify_md5() {
@@ -105,12 +139,24 @@ remove_if_symlink "${jar_target}" "Photon jar"
 remove_if_symlink "${db_target}" "Photon data directory"
 remove_if_symlink "${DATASET_MARKER_FILE}" "Photon dataset marker"
 
+if [[ "${FORCE_REBUILD}" != "1" && "${REFRESH}" != "1" ]] &&
+   [[ -f "${jar_target}" ]] &&
+   [[ -d "${db_target}" ]] &&
+   marker_matches_version; then
+  echo "==> Reusing existing Photon artifacts"
+  exit 0
+fi
+
 echo "==> Preparing Photon ${PHOTON_VERSION}"
 download_if_needed "${PHOTON_JAR_URL}" "${jar_target}"
 verify_sha256_if_configured "${jar_target}" "${PHOTON_JAR_SHA256:-}"
 download_if_needed "${PHOTON_DUMP_CHECKSUM_URL}" "${dump_checksum_file}"
 
-if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
+expected_dump_md5="$(checksum_value "${dump_checksum_file}")"
+
+if [[ -d "${db_target}" && "${FORCE_REBUILD}" != "1" ]] && marker_matches_dump_md5 "${expected_dump_md5}"; then
+  echo "==> Reusing existing Photon import for matching dump ${expected_dump_md5}"
+else
   if ! command -v zstd >/dev/null 2>&1; then
     echo "zstd is required to import the Photon json dump." >&2
     exit 1
@@ -119,7 +165,7 @@ if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   download_if_needed "${PHOTON_DUMP_URL}" "${dump_file}"
   verify_sha256_if_configured "${dump_file}" "${PHOTON_DUMP_SHA256:-}"
 
-  if ! verify_md5 "${dump_file}" "$(checksum_value "${dump_checksum_file}")"; then
+  if ! verify_md5 "${dump_file}" "${expected_dump_md5}"; then
     echo "Photon Denmark json dump checksum verification failed." >&2
     exit 1
   fi
@@ -139,11 +185,7 @@ if [[ ! -d "${db_target}" || "${NO_REFRESH}" != "1" ]]; then
   fi
 fi
 
-cat > "${DATASET_MARKER_FILE}" <<EOF
-photon_version=${PHOTON_VERSION}
-dump_series=${PHOTON_DUMP_SERIES}
-dump_md5=$(checksum_value "${dump_checksum_file}")
-EOF
+dmap_write_file_if_changed "${DATASET_MARKER_FILE}" "$(dataset_marker_content "${expected_dump_md5}")"
 
 echo "==> Photon artifacts ready"
 echo "Jar: ${jar_target}"

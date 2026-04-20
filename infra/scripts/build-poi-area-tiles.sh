@@ -69,12 +69,13 @@ INPUT_PBF_PATH="$(resolve_input_pbf)"
 INPUT_PBF_BASENAME="$(basename "${INPUT_PBF_PATH}")"
 
 mkdir -p "${WORK_DIR}" "${INFRA_DIR}/data/tiles"
-ensure_docker
 
 if ! needs_rebuild; then
   echo "==> Reusing existing ${OUTPUT_MBTILES}"
   exit 0
 fi
+
+ensure_docker
 
 echo "==> Building POI area tile image ${IMAGE_TAG}"
 docker build \
