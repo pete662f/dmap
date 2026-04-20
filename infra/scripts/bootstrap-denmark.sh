@@ -92,6 +92,9 @@ else
   echo "==> Reusing existing ${OUTPUT_MBTILES}"
 fi
 
+echo "==> Preparing POI area polygon tiles"
+"${SCRIPT_DIR}/build-poi-area-tiles.sh"
+
 echo "==> Preparing self-hosted style assets"
 "${SCRIPT_DIR}/prepare-style-assets.sh"
 

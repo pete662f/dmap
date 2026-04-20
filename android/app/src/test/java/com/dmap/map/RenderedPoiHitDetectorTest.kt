@@ -147,6 +147,27 @@ class RenderedPoiHitDetectorTest {
     }
 
     @Test
+    fun `parses unnamed poi area hitbox with class fallback title`() {
+        val feature = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
+            ),
+        )
+
+        val selected = detector.parseAreaFeature(
+            feature = feature,
+            layerId = "dmap_poi_area_hitbox",
+            tapLatLng = LatLng(55.6761, 12.5683),
+        )
+
+        assertNotNull(selected)
+        assertEquals("Parking", selected?.place?.title)
+        assertEquals("Parking", selected?.place?.categoryHint)
+    }
+
+    @Test
     fun `rejects broad residential landuse`() {
         val feature = polygonFeature(
             properties = mapOf(
@@ -235,6 +256,77 @@ class RenderedPoiHitDetectorTest {
     }
 
     @Test
+    fun `parking point poi attaches unnamed parking area by class`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "dmap_poi_area_hitbox") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Parking", selection?.place?.title)
+        assertNotNull(selection?.areaOutline)
+    }
+
+    @Test
+    fun `generic parking title does not require exact name`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Different Parking Name",
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "dmap_poi_area_hitbox") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Parking", selection?.place?.title)
+        assertNotNull(selection?.areaOutline)
+    }
+
+    @Test
     fun `point poi does not attach unrelated area outline`() {
         val pointPlace = detector.parsePointFeature(
             pointFeature(
@@ -269,20 +361,297 @@ class RenderedPoiHitDetectorTest {
         assertNull(selection.areaOutline)
     }
 
+    @Test
+    fun `area candidates are not selected without a tapped point poi`() {
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { emptyList() },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "park") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNull(selection)
+    }
+
+    @Test
+    fun `area source is still ignored without point poi`() {
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { emptyList() },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "dmap_poi_area_hitbox") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNull(selection)
+    }
+
+    @Test
+    fun `tapped point poi attaches same-name area through selection helper`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "park") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Botanisk Have", selection?.place?.title)
+        assertNotNull(selection?.areaOutline)
+    }
+
+    @Test
+    fun `unrelated containing area is not attached`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Cafe Example",
+                "class" to "cafe",
+                "subclass" to "cafe",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "dmap_poi_area_hitbox") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Cafe Example", selection?.place?.title)
+        assertNull(selection?.areaOutline)
+    }
+
+    @Test
+    fun `named point prefers same named area over class-only area`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+                "subclass" to "park",
+            ),
+        )
+        val classOnlyArea = polygonFeature(
+            properties = mapOf(
+                "class" to "park",
+                "subclass" to "park",
+                "area_m2" to 100,
+                "osm_type" to "way",
+                "osm_id" to "1",
+            ),
+        )
+        val sameNameArea = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+                "subclass" to "park",
+                "area_m2" to 2000,
+                "osm_type" to "way",
+                "osm_id" to "2",
+            ),
+        )
+
+        val selectedArea = detector.chooseAreaForPointPoi(
+            pointTitle = detector.parsePointFeature(pointFeature)!!.title,
+            pointClass = "park",
+            pointSubclass = "park",
+            candidates = listOf(classOnlyArea, sameNameArea).mapNotNull {
+                detector.parseAreaFeature(it, "dmap_poi_area_hitbox", LatLng(55.6869, 12.5738))
+            },
+        )
+
+        assertNotNull(selectedArea)
+        assertEquals("way:2", selectedArea?.place?.id)
+    }
+
+    @Test
+    fun `smaller area wins among generic class matches`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+            ),
+        )
+        val largerArea = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 2000,
+                "osm_type" to "way",
+                "osm_id" to "1",
+            ),
+        )
+        val smallerArea = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 500,
+                "osm_type" to "way",
+                "osm_id" to "2",
+            ),
+        )
+
+        val selectedArea = detector.chooseAreaForPointPoi(
+            pointTitle = detector.parsePointFeature(pointFeature)!!.title,
+            pointClass = "parking",
+            pointSubclass = "parking",
+            candidates = listOf(largerArea, smallerArea).mapNotNull {
+                detector.parseAreaFeature(it, "dmap_poi_area_hitbox", LatLng(55.6869, 12.5738))
+            },
+        )
+
+        assertNotNull(selectedArea)
+        assertEquals("way:2", selectedArea?.place?.id)
+    }
+
+    @Test
+    fun `area lookup uses selected poi geometry instead of tap location`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(120f, 40f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, queryPoint ->
+                if (
+                    layerId == "park" &&
+                    queryPoint.longitude() == 12.5738 &&
+                    queryPoint.latitude() == 55.6869
+                ) {
+                    listOf(areaFeature)
+                } else {
+                    emptyList()
+                }
+            },
+            tapLatLng = LatLng(55.6800, 12.5800),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(120f, 40f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Botanisk Have", selection?.place?.title)
+        assertNotNull(selection?.areaOutline)
+    }
+
+    @Test
+    fun `named poi attaches unnamed matching landuse area by category`() {
+        val pointFeature = pointFeature(
+            longitude = 10.2039,
+            latitude = 56.1629,
+            properties = mapOf(
+                "name" to "Aarhus Universitetshospital",
+                "class" to "hospital",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "class" to "hospital",
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "landuse_hospital") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(56.1629, 10.2039),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertNotNull(selection)
+        assertEquals("Aarhus Universitetshospital", selection?.place?.title)
+        assertEquals("Hospital", selection?.place?.categoryHint)
+        assertNotNull(selection?.areaOutline)
+    }
+
     private fun pointFeature(
         longitude: Double,
         latitude: Double,
-        properties: Map<String, String>,
+        properties: Map<String, Any?>,
     ): Feature {
         return Feature.fromGeometry(Point.fromLngLat(longitude, latitude)).apply {
             properties.forEach { (key, value) ->
-                addStringProperty(key, value)
+                addProperty(key, value)
             }
         }
     }
 
     private fun polygonFeature(
-        properties: Map<String, String>,
+        properties: Map<String, Any?>,
     ): Feature {
         return Feature.fromGeometry(
             Polygon.fromLngLats(
@@ -290,8 +659,17 @@ class RenderedPoiHitDetectorTest {
             ),
         ).apply {
             properties.forEach { (key, value) ->
-                addStringProperty(key, value)
+                addProperty(key, value)
             }
+        }
+    }
+
+    private fun Feature.addProperty(key: String, value: Any?) {
+        when (value) {
+            null -> Unit
+            is Number -> addNumberProperty(key, value)
+            is Boolean -> addBooleanProperty(key, value)
+            else -> addStringProperty(key, value.toString())
         }
     }
 
