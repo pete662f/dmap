@@ -100,10 +100,13 @@ docker run --rm \
   --force \
   --layer=poi_area \
   --minimum-zoom=12 \
-  --maximum-zoom=14 \
+  --maximum-zoom=16 \
   --extend-zooms-if-still-dropping \
   --no-feature-limit \
   --no-tile-size-limit \
+  --no-line-simplification \
+  --no-tiny-polygon-reduction-at-maximum-zoom \
+  --no-clipping \
   --read-parallel \
   --output="/output/${POI_AREAS_MBTILES}" \
   /work/poi-areas.geojsonseq

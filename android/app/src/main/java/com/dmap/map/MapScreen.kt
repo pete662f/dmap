@@ -292,9 +292,9 @@ fun MapScreen(
         markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
     }
 
-    LaunchedEffect(currentStyle, uiState.searchUiState.selectedAreaOutline) {
+    LaunchedEffect(currentStyle, uiState.searchUiState.selectedAreaHighlight) {
         val style = currentStyle ?: return@LaunchedEffect
-        areaHighlightController.renderSelectedArea(style, uiState.searchUiState.selectedAreaOutline)
+        areaHighlightController.renderSelectedArea(style, uiState.searchUiState.selectedAreaHighlight)
     }
 
     LaunchedEffect(uiState.searchUiState.selectedPlace?.selectionId) {

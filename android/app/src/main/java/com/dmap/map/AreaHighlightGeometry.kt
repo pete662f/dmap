@@ -8,8 +8,8 @@ import org.maplibre.geojson.MultiPolygon
 import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
 
-internal object AreaOutlineGeometry {
-    fun fromGeometry(geometry: Geometry): FeatureCollection? {
+internal object AreaHighlightGeometry {
+    fun fromGeometry(geometry: Geometry): SelectedAreaHighlight? {
         val outlines = when (geometry) {
             is Polygon -> geometry.coordinates().toLineFeatures()
             is MultiPolygon -> geometry.coordinates().flatMap { polygon ->
@@ -18,9 +18,12 @@ internal object AreaOutlineGeometry {
             else -> emptyList()
         }
 
-        return outlines
-            .takeIf { it.isNotEmpty() }
-            ?.let { FeatureCollection.fromFeatures(it) }
+        if (outlines.isEmpty()) return null
+
+        return SelectedAreaHighlight(
+            fillGeometry = FeatureCollection.fromFeatures(arrayOf(Feature.fromGeometry(geometry))),
+            outlineGeometry = FeatureCollection.fromFeatures(outlines),
+        )
     }
 
     private fun List<List<Point>>.toLineFeatures(): List<Feature> {

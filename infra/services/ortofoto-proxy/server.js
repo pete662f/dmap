@@ -188,7 +188,11 @@ function readToken(options = {}) {
 
   const tokenFile = options.tokenFile ?? process.env.DMAP_ORTHOFOTO_TOKEN_FILE ?? '';
   if (tokenFile.trim().length > 0) {
-    return fs.readFileSync(tokenFile, 'utf8').trim();
+    try {
+      return fs.readFileSync(tokenFile, 'utf8').trim();
+    } catch {
+      return '';
+    }
   }
 
   return process.env.DMAP_ORTHOFOTO_TOKEN ?? '';

@@ -269,7 +269,7 @@ class MapViewModel(
                         type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.Search,
                     ),
-                    selectedAreaOutline = null,
+                    selectedAreaHighlight = null,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
                 isCenteredOnUser = false,
@@ -294,7 +294,7 @@ class MapViewModel(
                         type = SelectedPlaceType.PlaceResult,
                         origin = SelectedPlaceOrigin.PoiTap,
                     ),
-                    selectedAreaOutline = selection.areaOutline,
+                    selectedAreaHighlight = selection.areaHighlight,
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
@@ -352,7 +352,7 @@ class MapViewModel(
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     selectedPlace = null,
-                    selectedAreaOutline = null,
+                    selectedAreaHighlight = null,
                     isEnrichingPlace = false,
                 ),
             )
@@ -375,7 +375,7 @@ class MapViewModel(
             state.copy(
                 searchUiState = state.searchUiState.copy(
                     selectedPlace = initialSelection,
-                    selectedAreaOutline = null,
+                    selectedAreaHighlight = null,
                     isEnrichingPlace = true,
                 ),
                 overlayMessage = newMessage(

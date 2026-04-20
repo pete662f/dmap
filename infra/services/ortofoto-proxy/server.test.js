@@ -60,6 +60,26 @@ test('environment token is used when token file is absent', () => {
   assert.equal(readToken(), 'env-token');
 });
 
+test('missing token file is treated as unconfigured without falling back to environment token', async () => {
+  process.env.DMAP_ORTHOFOTO_TOKEN = 'env-token';
+  process.env.DMAP_ORTHOFOTO_TOKEN_FILE = path.join(os.tmpdir(), 'dmap-missing-token-file');
+
+  assert.equal(readToken(), '');
+
+  const baseUrl = await listen(createServer());
+  const healthResponse = await fetch(`${baseUrl}/healthz`);
+  const tileResponse = await fetch(`${baseUrl}/ortofoto/tiles/10/547/322.jpg`);
+
+  assert.equal(healthResponse.status, 200);
+  assert.deepEqual(await healthResponse.json(), {
+    status: 'ok',
+    service: 'ortofoto-proxy',
+    tokenConfigured: false,
+  });
+  assert.equal(tileResponse.status, 503);
+  assert.deepEqual(await tileResponse.json(), { error: 'orthofoto_token_missing' });
+});
+
 test('invalid and out of range tile paths are rejected', () => {
   assert.deepEqual(parseTilePath('/ortofoto/tiles/a/547/322.jpg'), {
     ok: false,

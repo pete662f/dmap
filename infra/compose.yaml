@@ -9,7 +9,9 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ./tileserver:/data
+      - ./tileserver/config.json:/data/config.json:ro
+      - ./tileserver/styles:/data/styles:ro
+      - ./tileserver/fonts:/data/fonts:ro
       - ./data:/data/data:ro
     restart: unless-stopped
   photon:
@@ -60,9 +62,11 @@ services:
       - no-new-privileges:true
     read_only: true
     mem_limit: 256m
+    volumes:
+      - ${DMAP_ORTHOFOTO_TOKEN_FILE:-./services/ortofoto-proxy/empty-token}:/run/secrets/dmap_ortofoto_token:ro
     environment:
       DMAP_ORTHOFOTO_TOKEN: ${DMAP_ORTHOFOTO_TOKEN:-}
-      DMAP_ORTHOFOTO_TOKEN_FILE: ${DMAP_ORTHOFOTO_TOKEN_FILE:-}
+      DMAP_ORTHOFOTO_TOKEN_FILE: ${DMAP_ORTHOFOTO_TOKEN_FILE:+/run/secrets/dmap_ortofoto_token}
       DMAP_ORTHOFOTO_TIMEOUT_MS: ${DMAP_ORTHOFOTO_TIMEOUT_MS:-8000}
       DMAP_ORTHOFOTO_UPSTREAM_URL: ${DMAP_ORTHOFOTO_UPSTREAM_URL:-https://api.dataforsyningen.dk/orto_foraar_webm_DAF}
     restart: unless-stopped
