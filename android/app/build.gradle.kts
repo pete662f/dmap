@@ -58,9 +58,9 @@ fun configuredValue(
     localProperties.getProperty(localProperty),
     envValue,
     defaultValue,
-).firstNotNullOf { candidate ->
+).firstNotNullOfOrNull { candidate ->
     candidate?.trim()?.takeIf { it.isNotBlank() }
-}
+} ?: defaultValue.trim()
 
 fun quoted(value: String): String = "\"${value}\""
 
