@@ -185,6 +185,43 @@ def main() -> int:
         ],
     )
 
+    upsert_layer_before(
+        style,
+        {
+            "id": "dmap_house_number",
+            "type": "symbol",
+            "source": "openmaptiles",
+            "source-layer": "housenumber",
+            "minzoom": 17,
+            "layout": {
+                "symbol-placement": "point",
+                "text-anchor": "center",
+                "text-field": ["get", "housenumber"],
+                "text-font": ["Roboto Regular"],
+                "text-size": {"base": 1, "stops": [[17, 9.5], [20, 12]]},
+                "text-padding": 1,
+                "text-allow-overlap": False,
+                "text-ignore-placement": False,
+            },
+            "paint": {
+                "text-color": "#766d62",
+                "text-halo-color": "rgba(255,255,255,0.92)",
+                "text-halo-width": 1,
+                "text-halo-blur": 0.35,
+            },
+        },
+        [
+            "poi_z16",
+            "poi_z15",
+            "poi_z14",
+            "poi_transit",
+            "road_label",
+            "place_village",
+            "place_town",
+            "place_city",
+        ],
+    )
+
     def patch_road_label(layer):
         layer["minzoom"] = 14
         layer["filter"] = [
