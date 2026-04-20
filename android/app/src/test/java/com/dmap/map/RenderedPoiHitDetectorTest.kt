@@ -222,37 +222,35 @@ class RenderedPoiHitDetectorTest {
 
     @Test
     fun `point poi can attach same-name area outline`() {
-        val pointPlace = detector.parsePointFeature(
-            pointFeature(
-                longitude = 12.5738,
-                latitude = 55.6869,
-                properties = mapOf(
-                    "name" to "Botanisk Have",
-                    "class" to "park",
-                ),
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
             ),
         )
-        val area = detector.parseAreaFeature(
-            feature = polygonFeature(
-                properties = mapOf(
-                    "name" to "Botanisk Have",
-                    "class" to "park",
-                ),
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
             ),
-            layerId = "park",
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "park") listOf(areaFeature) else emptyList()
+            },
             tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
         )
 
-        val selection = RenderedPoiSelection(
-            place = pointPlace!!,
-            areaOutline = detector.chooseMatchingAreaCandidate(
-                title = pointPlace.title,
-                candidates = listOf(area!!),
-            )?.areaOutline,
-        )
-
-        assertEquals("Botanisk Have", selection.place.title)
-        assertNotNull(selection.areaOutline)
+        assertEquals("Botanisk Have", selection?.place?.title)
+        assertNotNull(selection?.areaOutline)
     }
 
     @Test
@@ -327,38 +325,115 @@ class RenderedPoiHitDetectorTest {
     }
 
     @Test
-    fun `point poi does not attach unrelated area outline`() {
-        val pointPlace = detector.parsePointFeature(
-            pointFeature(
-                longitude = 12.5738,
-                latitude = 55.6869,
-                properties = mapOf(
-                    "name" to "Cafe Example",
-                    "class" to "cafe",
-                ),
+    fun `hitbox area match does not query legacy area layers`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
             ),
         )
-        val area = detector.parseAreaFeature(
-            feature = polygonFeature(
-                properties = mapOf(
-                    "name" to "Botanisk Have",
-                    "class" to "park",
-                ),
+        val hitboxAreaFeature = polygonFeature(
+            properties = mapOf(
+                "class" to "parking",
+                "subclass" to "parking",
+                "area_m2" to 1000,
             ),
-            layerId = "park",
+        )
+        val legacyQueries = mutableListOf<String>()
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "dmap_poi_area_hitbox") {
+                    listOf(hitboxAreaFeature)
+                } else {
+                    legacyQueries += layerId
+                    emptyList()
+                }
+            },
             tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
         )
 
-        val selection = RenderedPoiSelection(
-            place = pointPlace!!,
-            areaOutline = detector.chooseMatchingAreaCandidate(
-                title = pointPlace.title,
-                candidates = listOf(area!!),
-            )?.areaOutline,
+        assertNotNull(selection)
+        assertNotNull(selection?.areaOutline)
+        assertTrue(legacyQueries.isEmpty())
+    }
+
+    @Test
+    fun `legacy area layers are queried only after hitbox miss`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+        val legacyAreaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+        val areaQueries = mutableListOf<String>()
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                areaQueries += layerId
+                if (layerId == "park") listOf(legacyAreaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
         )
 
-        assertEquals("Cafe Example", selection.place.title)
-        assertNull(selection.areaOutline)
+        assertNotNull(selection)
+        assertNotNull(selection?.areaOutline)
+        assertEquals("dmap_poi_area_hitbox", areaQueries.first())
+        assertTrue("dmap_poi_area_hitbox" in areaQueries)
+        assertTrue("park" in areaQueries)
+    }
+
+    @Test
+    fun `point poi does not attach unrelated area outline`() {
+        val pointFeature = pointFeature(
+            longitude = 12.5738,
+            latitude = 55.6869,
+            properties = mapOf(
+                "name" to "Cafe Example",
+                "class" to "cafe",
+            ),
+        )
+        val areaFeature = polygonFeature(
+            properties = mapOf(
+                "name" to "Botanisk Have",
+                "class" to "park",
+            ),
+        )
+
+        val selection = detector.selectionFromRenderedFeatures(
+            tapPoint = RenderedPoiHitDetector.ScreenPoint(0f, 0f),
+            pointFeaturesByLayer = { layerId ->
+                if (layerId == "poi_z14") listOf(pointFeature) else emptyList()
+            },
+            areaFeaturesByLayer = { layerId, _ ->
+                if (layerId == "park") listOf(areaFeature) else emptyList()
+            },
+            tapLatLng = LatLng(55.6869, 12.5738),
+            toScreenPoint = { RenderedPoiHitDetector.ScreenPoint(0f, 0f) },
+        )
+
+        assertEquals("Cafe Example", selection?.place?.title)
+        assertNull(selection?.areaOutline)
     }
 
     @Test

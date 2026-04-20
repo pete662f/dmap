@@ -1,6 +1,9 @@
 .DS_Store
 .idea/
 *.iml
+__pycache__/
+*.py[cod]
+*$py.class
 .env
 .env.*
 !.env.example

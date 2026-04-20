@@ -14,6 +14,8 @@ OUTPUT_MBTILES="${INFRA_DIR}/data/tiles/${POI_AREAS_MBTILES}"
 WORK_DIR="${INFRA_DIR}/.cache/poi-areas"
 GEOJSONSEQ="${WORK_DIR}/poi-areas.geojsonseq"
 IMAGE_TAG="dmap2-poi-area-tiles:${TIPPECANOE_GIT_REF}"
+EXTRACTOR_SCRIPT="${SERVICE_DIR}/extract_poi_area_geojson.py"
+DOCKERFILE="${SERVICE_DIR}/Dockerfile"
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
 
 ensure_docker() {
@@ -50,6 +52,16 @@ needs_rebuild() {
   if [[ "${INPUT_PBF_PATH}" -nt "${OUTPUT_MBTILES}" ]]; then
     return 0
   fi
+  for dependency in \
+    "${EXTRACTOR_SCRIPT}" \
+    "${DOCKERFILE}" \
+    "${BASH_SOURCE[0]}" \
+    "${INFRA_DIR}/versions.env"
+  do
+    if [[ "${dependency}" -nt "${OUTPUT_MBTILES}" ]]; then
+      return 0
+    fi
+  done
   return 1
 }
 

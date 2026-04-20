@@ -4,7 +4,6 @@ import android.graphics.RectF
 import com.dmap.place.PlaceKind
 import com.dmap.place.PlaceSummary
 import java.util.Locale
-import kotlin.math.pow
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.geojson.Feature
@@ -88,19 +87,11 @@ class RenderedPoiHitDetector(
             if (selected != null) {
                 return RenderedPoiSelection(
                     place = selected.place,
-                    areaOutline = chooseAreaForPointPoi(
-                        pointTitle = selected.place.title,
-                        pointClass = selected.poiClass,
-                        pointSubclass = selected.poiSubclass,
-                        candidates = queryAreaCandidates(
-                            queryFeatures = { areaLayerId ->
-                                areaFeaturesByLayer(areaLayerId, selected.geometryPoint)
-                            },
-                            tapLatLng = tapLatLng,
-                        ),
-                    )?.areaOutline,
-                    poiClass = selected.poiClass,
-                    poiSubclass = selected.poiSubclass,
+                    areaOutline = chooseAreaOutlineForPointPoi(
+                        selected = selected,
+                        areaFeaturesByLayer = areaFeaturesByLayer,
+                        tapLatLng = tapLatLng,
+                    ),
                 )
             }
         }
@@ -141,10 +132,6 @@ class RenderedPoiHitDetector(
                 compareBy<PoiCandidate> { it.distanceSquared }
                     .thenBy { it.place.id },
             )
-    }
-
-    internal fun parseFeature(feature: Feature): PlaceSummary? {
-        return parsePointFeature(feature)
     }
 
     internal fun parsePointFeature(feature: Feature): PlaceSummary? {
@@ -249,11 +236,12 @@ class RenderedPoiHitDetector(
         )
     }
 
-    internal fun queryAreaCandidates(
+    private fun queryAreaCandidates(
+        layerIds: List<String>,
         queryFeatures: (String) -> List<Feature>,
         tapLatLng: LatLng,
     ): List<AreaCandidate> {
-        return AREA_POI_LAYER_IDS.flatMap { layerId ->
+        return layerIds.flatMap { layerId ->
             queryFeatures(layerId).mapNotNull { feature ->
                 parseAreaFeature(
                     feature = feature,
@@ -262,46 +250,6 @@ class RenderedPoiHitDetector(
                 )
             }
         }
-    }
-
-    internal fun chooseBestAreaCandidate(candidates: List<AreaCandidate>): AreaCandidate? {
-        return candidates.minWithOrNull(AREA_CANDIDATE_COMPARATOR)
-    }
-
-    internal fun chooseMatchingAreaCandidate(
-        title: String,
-        candidates: List<AreaCandidate>,
-    ): AreaCandidate? {
-        val normalizedTitle = normalizeTitle(title)
-        if (normalizedTitle == null) return null
-
-        return chooseBestAreaCandidate(
-            candidates.filter { candidate ->
-                normalizeTitle(candidate.place.title) == normalizedTitle
-            },
-        )
-    }
-
-    internal fun chooseAssociatedAreaCandidate(
-        place: PlaceSummary,
-        candidates: List<AreaCandidate>,
-    ): AreaCandidate? {
-        val sameTitle = chooseMatchingAreaCandidate(
-            title = place.title,
-            candidates = candidates,
-        )
-        if (sameTitle != null) return sameTitle
-
-        val normalizedCategory = normalizeTitle(place.categoryHint)
-            ?: normalizeTitle(place.title)
-            ?: return null
-
-        return chooseBestAreaCandidate(
-            candidates.filter { candidate ->
-                !candidate.hasName &&
-                    normalizeTitle(candidate.place.categoryHint) == normalizedCategory
-            },
-        )
     }
 
     internal fun chooseAreaForPointPoi(
@@ -337,6 +285,45 @@ class RenderedPoiHitDetector(
                     )
             },
         )
+    }
+
+    private fun chooseAreaOutlineForPointPoi(
+        selected: PoiCandidate,
+        areaFeaturesByLayer: (String, Point) -> List<Feature>,
+        tapLatLng: LatLng,
+    ): org.maplibre.geojson.FeatureCollection? {
+        val hitboxCandidates = queryAreaCandidates(
+            layerIds = POI_AREA_HITBOX_LAYER_IDS,
+            queryFeatures = { layerId ->
+                areaFeaturesByLayer(layerId, selected.geometryPoint)
+            },
+            tapLatLng = tapLatLng,
+        )
+        val hitboxMatch = chooseAreaForPointPoi(
+            pointTitle = selected.place.title,
+            pointClass = selected.poiClass,
+            pointSubclass = selected.poiSubclass,
+            candidates = hitboxCandidates,
+        )
+        if (hitboxMatch != null) return hitboxMatch.areaOutline
+
+        val fallbackCandidates = queryAreaCandidates(
+            layerIds = LEGACY_AREA_POI_LAYER_IDS,
+            queryFeatures = { layerId ->
+                areaFeaturesByLayer(layerId, selected.geometryPoint)
+            },
+            tapLatLng = tapLatLng,
+        )
+        return chooseAreaForPointPoi(
+            pointTitle = selected.place.title,
+            pointClass = selected.poiClass,
+            pointSubclass = selected.poiSubclass,
+            candidates = fallbackCandidates,
+        )?.areaOutline
+    }
+
+    private fun chooseBestAreaCandidate(candidates: List<AreaCandidate>): AreaCandidate? {
+        return candidates.minWithOrNull(AREA_CANDIDATE_COMPARATOR)
     }
 
     private fun buildFeatureId(
@@ -425,9 +412,9 @@ class RenderedPoiHitDetector(
         return raw
             ?.trim()
             ?.lowercase(LOCALE)
-            ?.replace(Regex("[^\\p{L}\\p{Nd}]+"), " ")
+            ?.replace(NON_TITLE_CHARACTER_REGEX, " ")
             ?.trim()
-            ?.replace(Regex("\\s+"), " ")
+            ?.replace(WHITESPACE_REGEX, " ")
             ?.ifBlank { null }
     }
 
@@ -464,7 +451,9 @@ class RenderedPoiHitDetector(
         val y: Float,
     ) {
         fun distanceSquaredTo(other: ScreenPoint): Double {
-            return (x - other.x).toDouble().pow(2) + (y - other.y).toDouble().pow(2)
+            val deltaX = (x - other.x).toDouble()
+            val deltaY = (y - other.y).toDouble()
+            return deltaX * deltaX + deltaY * deltaY
         }
     }
 
@@ -490,14 +479,7 @@ class RenderedPoiHitDetector(
         val areaMeters: Double?,
         val place: PlaceSummary,
         val areaOutline: org.maplibre.geojson.FeatureCollection,
-    ) {
-        fun toSelection(): RenderedPoiSelection {
-            return RenderedPoiSelection(
-                place = place,
-                areaOutline = areaOutline,
-            )
-        }
-    }
+    )
 
     companion object {
         internal const val HIT_TOLERANCE_DP = 20f
@@ -509,8 +491,10 @@ class RenderedPoiHitDetector(
             "poi_z15",
             "poi_z16",
         )
-        internal val AREA_POI_LAYER_IDS = listOf(
+        private val POI_AREA_HITBOX_LAYER_IDS = listOf(
             POI_AREA_HITBOX_LAYER_ID,
+        )
+        private val LEGACY_AREA_POI_LAYER_IDS = listOf(
             "park",
             "landuse_school",
             "landuse_hospital",
@@ -518,8 +502,11 @@ class RenderedPoiHitDetector(
             "landuse_pitch",
             "landuse_track",
         )
+        internal val AREA_POI_LAYER_IDS = POI_AREA_HITBOX_LAYER_IDS + LEGACY_AREA_POI_LAYER_IDS
 
         private val LOCALE = Locale("da", "DK")
+        private val NON_TITLE_CHARACTER_REGEX = Regex("[^\\p{L}\\p{Nd}]+")
+        private val WHITESPACE_REGEX = Regex("\\s+")
         private val GENERIC_AREA_TITLES = setOf(
             "parking",
             "bicycle parking",

@@ -6,6 +6,4 @@ import org.maplibre.geojson.FeatureCollection
 data class RenderedPoiSelection(
     val place: PlaceSummary,
     val areaOutline: FeatureCollection? = null,
-    val poiClass: String? = null,
-    val poiSubclass: String? = null,
 )
