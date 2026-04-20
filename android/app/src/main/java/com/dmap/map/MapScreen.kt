@@ -508,7 +508,7 @@ private fun LayerToggleButton(
                 tint = if (ortofotoActive) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.onSurface
+                    MapControlInactiveIconColor
                 },
                 modifier = Modifier.size(24.dp),
             )
@@ -844,9 +844,9 @@ private fun LocateMeButton(
                 imageVector = ImageVector.vectorResource(R.drawable.ic_locate),
                 contentDescription = "Locate me",
                 tint = when {
-                    isCenteredOnUser -> Color(0xFF9E9E9E)
+                    isCenteredOnUser -> MapControlInactiveIconColor
                     active -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurface
+                    else -> MapControlInactiveIconColor
                 },
                 modifier = Modifier.size(24.dp),
             )
@@ -960,6 +960,7 @@ private fun FullscreenBackendError(
 }
 
 private const val COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES = 1.0
+private val MapControlInactiveIconColor = Color(0xFF9E9E9E)
 
 private fun normalizedBearingDelta(bearing: Double): Double {
     val normalized = ((bearing % 360.0) + 360.0) % 360.0
