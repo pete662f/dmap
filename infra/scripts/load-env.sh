@@ -35,13 +35,18 @@ dmap_load_env() {
       continue
     fi
 
-    key="${line%%=*}"
-    value="${line#*=}"
-    key="${key%"${key##*[![:space:]]}"}"
-    value="${value#"${value%%[![:space:]]*}"}"
-    value="${value%"${value##*[![:space:]]}"}"
+	    key="${line%%=*}"
+	    value="${line#*=}"
+	    key="${key%"${key##*[![:space:]]}"}"
+	    value="${value#"${value%%[![:space:]]*}"}"
+	    value="${value%"${value##*[![:space:]]}"}"
 
-    if [[ ${#value} -ge 2 ]]; then
+	    if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+	      echo "Skipping invalid .env key: ${key}" >&2
+	      continue
+	    fi
+
+	    if [[ ${#value} -ge 2 ]]; then
       first="${value:0:1}"
       last="${value: -1}"
       if [[ ( "${first}" == '"' && "${last}" == '"' ) || ( "${first}" == "'" && "${last}" == "'" ) ]]; then

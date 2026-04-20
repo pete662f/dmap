@@ -95,4 +95,108 @@ class PhotonResponseParserTest {
 
         assertEquals(0, results.size)
     }
+
+    @Test
+    fun `parse ignores json null and non-string labels`() {
+        val payload = """
+            {
+              "features": [
+                {
+                  "geometry": {
+                    "coordinates": [12.5683, 55.6761]
+                  },
+                  "properties": {
+                    "name": null,
+                    "street": true,
+                    "postcode": {"value": "1360"},
+                    "city": "København",
+                    "country": "Danmark",
+                    "type": "city"
+                  }
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val results = PhotonResponseParser.parse(payload)
+
+        assertEquals(1, results.size)
+        val place = results.first().place
+        assertEquals("København", place.title)
+        assertNull(place.subtitle)
+    }
+
+    @Test
+    fun `parse decodes escaped json strings`() {
+        val payload = """
+            {
+              "features": [
+                {
+                  "geometry": {
+                    "coordinates": [12.5683, 55.6761]
+                  },
+                  "properties": {
+                    "name": "Joe\u0027s Caf\u00e9",
+                    "city": "K\u00f8benhavn",
+                    "country": "Danmark",
+                    "osm_type": "N",
+                    "osm_id": "123",
+                    "osm_key": "amenity",
+                    "osm_value": "cafe"
+                  }
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val results = PhotonResponseParser.parse(payload)
+
+        assertEquals(1, results.size)
+        val place = results.first().place
+        assertEquals("Joe's Café", place.title)
+        assertEquals("København", place.subtitle)
+    }
+
+    @Test
+    fun `parse returns empty list when features is not an array`() {
+        val payload = """{"features": {"unexpected": true}}"""
+
+        val results = PhotonResponseParser.parse(payload)
+
+        assertEquals(0, results.size)
+    }
+
+    @Test
+    fun `parse skips malformed feature and keeps valid feature`() {
+        val payload = """
+            {
+              "features": [
+                "not an object",
+                {
+                  "geometry": {
+                    "coordinates": []
+                  },
+                  "properties": {
+                    "name": "Broken"
+                  }
+                },
+                {
+                  "geometry": {
+                    "coordinates": [10.2039, 56.1629]
+                  },
+                  "properties": {
+                    "name": "Aarhus",
+                    "country": "Danmark",
+                    "type": "city"
+                  }
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val results = PhotonResponseParser.parse(payload)
+
+        assertEquals(1, results.size)
+        assertEquals("Aarhus", results.first().place.title)
+    }
 }

@@ -46,7 +46,7 @@ Glyphs are prefetched into the repo during bootstrap so the app does not depend 
 
 Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
 
-Photon runtime now uses a Docker-managed `photon_data` volume for the live index. The imported host-side artifacts under `infra/data/search/photon/` remain the source dataset, and `./infra/scripts/up-backend.sh` syncs that dataset into the runtime volume automatically before `docker compose up`.
+Photon runtime now uses a Docker-managed `dmap2_photon_data` volume for the live index. The imported host-side artifacts under `infra/data/search/photon/` remain the source dataset, and `./infra/scripts/up-backend.sh` syncs that dataset into the runtime volume automatically before starting Compose.
 
 ### 2. Start the local backends
 
@@ -68,7 +68,19 @@ The local services are served on:
 - Search and reverse geocoding: [http://localhost:8081](http://localhost:8081)
 - Ortofoto imagery proxy: [http://localhost:8083](http://localhost:8083)
 
-Ortofoto tile forwarding requires a Dataforsyningen token in the repo root `.env`:
+Backend ports bind to `127.0.0.1` by default. For physical-device testing, opt in to LAN exposure:
+
+```dotenv
+DMAP_BIND_HOST=0.0.0.0
+```
+
+Ortofoto tile forwarding requires a Dataforsyningen token. Prefer a token file outside the repo tree:
+
+```dotenv
+DMAP_ORTHOFOTO_TOKEN_FILE=/Users/you/.config/dmap2/ortofoto-token
+```
+
+The legacy environment variable is still supported:
 
 ```dotenv
 DMAP_ORTHOFOTO_TOKEN=your-dataforsyningen-token
@@ -91,6 +103,7 @@ For a physical device, set your Mac's LAN IP in the repo root `.env`:
 
 ```dotenv
 DMAP_HOST_IP=192.168.0.195
+DMAP_BIND_HOST=0.0.0.0
 ```
 
 Then rebuild and reinstall the app so the compiled Android `BuildConfig` picks up the new host.
@@ -119,10 +132,11 @@ The build now prints the compiled backend URLs after Gradle finishes. You can al
 Physical-device checklist:
 
 1. Set `DMAP_HOST_IP` in the repo root `.env`
-2. Start the backends with `./infra/scripts/up-backend.sh`
-3. Rebuild and reinstall the Android app
-4. Ensure the phone and Mac are on the same Wi-Fi or LAN
-5. If it still fails, open these URLs on the phone:
+2. Set `DMAP_BIND_HOST=0.0.0.0` or your Mac LAN IP so the phone can reach the backend ports
+3. Start the backends with `./infra/scripts/up-backend.sh`
+4. Rebuild and reinstall the Android app
+5. Ensure the phone and Mac are on the same Wi-Fi or LAN
+6. If it still fails, open these URLs on the phone:
    - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
    - `http://<mac-ip>:8081/status`
 
@@ -134,9 +148,9 @@ A template lives at [`android/local.properties.example`](./android/local.propert
 
 The repo root `.env` is the shared default source for Android builds and backend scripts. The Android build reads:
 
-- `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8082`
+- `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8083`
 - `DMAP_IMAGERY_BACKEND_URL`, or `DMAP_HOST_IP` deriving `:8083`
-- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, `DMAP_ROUTING_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
+- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
 
 Build precedence is:
 
@@ -164,6 +178,7 @@ The backend helper scripts use the same repo `.env` file:
 - Benchmark map + search backends: `./infra/scripts/benchmark-backend.sh`
 - Build Android debug APK: `./infra/scripts/build-apk.sh`
 - Build Android release APK: `./infra/scripts/build-apk.sh --release`
+- Run Android unit tests directly: `cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew testDebugUnitTest`
 
 ## M2 place experience
 

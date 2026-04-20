@@ -29,11 +29,11 @@ check "${SEARCH_BASE_URL}/api?q=aarhus&limit=3"
 check "${SEARCH_BASE_URL}/reverse?lon=12.5683&lat=55.6761&limit=1"
 check "${IMAGERY_BASE_URL}/healthz"
 
-if [[ -n "${DMAP_ORTHOFOTO_TOKEN:-}" ]]; then
+if [[ -n "${DMAP_ORTHOFOTO_TOKEN_FILE:-}" || -n "${DMAP_ORTHOFOTO_TOKEN:-}" ]]; then
   check "${IMAGERY_BASE_URL}/ortofoto/tiles/10/547/322.jpg"
 else
   echo
-  echo "Warning: DMAP_ORTHOFOTO_TOKEN is not set; skipping Ortofoto tile validation." >&2
+  echo "Warning: DMAP_ORTHOFOTO_TOKEN_FILE or DMAP_ORTHOFOTO_TOKEN is not set; skipping Ortofoto tile validation." >&2
 fi
 
 echo

@@ -54,6 +54,19 @@ class MapViewModelBaseLayerTest {
     }
 
     @Test
+    fun `toggleBaseLayer without imagery url stays vector and shows message`() {
+        val viewModel = createViewModel(imageryTileUrl = null)
+
+        viewModel.toggleBaseLayer()
+
+        assertEquals(MapBaseLayer.Vector, viewModel.uiState.value.mapBaseLayer)
+        assertEquals(
+            "Ortofoto imagery is not configured.",
+            viewModel.uiState.value.overlayMessage?.text,
+        )
+    }
+
+    @Test
     fun `imagery layer failure returns to vector mode and shows message`() {
         val viewModel = createViewModel()
 

@@ -47,7 +47,7 @@ GeoDanmark Ortofoto Web Mercator WMTS
 ### Search backend
 
 - `infra/scripts/bootstrap-photon.sh` imports the Photon dump into host-managed source artifacts under `infra/data/search/photon/`
-- `infra/scripts/sync-photon-volume.sh` copies `photon_data/` plus `.dataset-version` into the Docker-managed `photon_data` volume when the dataset changed
+- `infra/scripts/sync-photon-volume.sh` copies `photon_data/` plus `.dataset-version` into the Docker-managed `dmap2_photon_data` volume when the dataset changed
 - `infra/scripts/up-backend.sh` runs the sync step before `docker compose up`
 - Photon serves its live OpenSearch index from the volume-backed `photon_data` path, while `photon.jar` remains bind-mounted from the host
 - Photon starts with explicit `Xms`, `Xmx`, and Vector API JVM flags so first-burst search latency is less dependent on heap growth and default module loading
@@ -55,9 +55,10 @@ GeoDanmark Ortofoto Web Mercator WMTS
 ### Ortofoto backend
 
 - `infra/services/ortofoto-proxy/` is a dependency-free Node HTTP service
-- The proxy reads `DMAP_ORTHOFOTO_TOKEN` from the repo `.env` through Docker Compose
+- The proxy reads `DMAP_ORTHOFOTO_TOKEN_FILE` or `DMAP_ORTHOFOTO_TOKEN`; token files outside the repo are preferred
 - Android never receives the Dataforsyningen token; it only calls `/ortofoto/tiles/{z}/{x}/{y}.jpg`
 - The proxy forwards valid tile requests to `https://api.dataforsyningen.dk/orto_foraar_webm_DAF`
+- Upstream tile requests are timeout-bound and streamed back to clients
 - Missing credentials do not block backend startup; tile requests return `503` until the token is configured
 
 ### Android app
@@ -86,7 +87,7 @@ GeoDanmark Ortofoto Web Mercator WMTS
 
 - App seam: `RoutingService`
 - Infra seam: `infra/services/valhalla/`
-- Planned future base URL: `http://localhost:8082`
+- Routing remains stubbed in M2; Valhalla and a runtime routing URL are future work
 
 ### Imagery
 

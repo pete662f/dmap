@@ -15,6 +15,7 @@ __pycache__/
 /android/local.properties
 /android/app/build/
 /android/app/.idea/
+/android/app/local.properties
 
 /infra/.cache/
 /infra/data/osm/*

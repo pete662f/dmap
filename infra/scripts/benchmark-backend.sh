@@ -28,29 +28,46 @@ Options:
 EOF
 }
 
+require_value() {
+  local flag="$1"
+  local value="${2:-}"
+
+  if [[ -z "${value}" || "${value}" == --* ]]; then
+    echo "Missing value for ${flag}" >&2
+    usage >&2
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)
+      require_value "$1" "${2:-}"
       MODE="$2"
       shift 2
       ;;
     --requests)
+      require_value "$1" "${2:-}"
       REQUESTS="$2"
       shift 2
       ;;
     --concurrency)
+      require_value "$1" "${2:-}"
       SEARCH_CONCURRENCIES="$2"
       shift 2
       ;;
     --search-url)
+      require_value "$1" "${2:-}"
       SEARCH_BASE_URL="$2"
       shift 2
       ;;
     --map-url)
+      require_value "$1" "${2:-}"
       MAP_BASE_URL="$2"
       shift 2
       ;;
     --photon-container)
+      require_value "$1" "${2:-}"
       PHOTON_CONTAINER="$2"
       shift 2
       ;;

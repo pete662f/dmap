@@ -109,9 +109,15 @@ fun MapScreen(
     var currentBearing by remember { mutableStateOf(0.0) }
     var searchFocused by remember { mutableStateOf(false) }
 
+    val locationPermissions = arrayOf(
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+    )
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         viewModel.setLocationPermission(granted)
         if (granted) {
             val map = mapLibreMap
@@ -377,9 +383,7 @@ fun MapScreen(
                         mapPresentation.recenterDurationMs,
                     )
                 ) {
-                    LocateMeResult.PermissionRequired -> permissionLauncher.launch(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                    )
+                    LocateMeResult.PermissionRequired -> permissionLauncher.launch(locationPermissions)
                     else -> viewModel.onLocateMeResult(result)
                 }
             },
@@ -420,7 +424,7 @@ fun MapScreen(
             } else if (uiState.locationPermissionState == LocationPermissionState.Denied) {
                 PermissionPrompt(
                     onGrant = {
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        permissionLauncher.launch(locationPermissions)
                     },
                 )
             }
@@ -967,9 +971,10 @@ private fun rememberMapViewWithLifecycle(
     lifecycleOwner: LifecycleOwner,
 ): MapView {
     val context = LocalContext.current
-    val mapView = remember { MapView(context) }
+    val mapView = remember(lifecycleOwner) { MapView(context) }
 
     DisposableEffect(lifecycleOwner, mapView) {
+        var destroyed = false
         mapView.onCreate(null)
 
         val observer = object : DefaultLifecycleObserver {
@@ -990,7 +995,10 @@ private fun rememberMapViewWithLifecycle(
             }
 
             override fun onDestroy(owner: LifecycleOwner) {
-                mapView.onDestroy()
+                if (!destroyed) {
+                    destroyed = true
+                    mapView.onDestroy()
+                }
             }
         }
 
@@ -998,6 +1006,10 @@ private fun rememberMapViewWithLifecycle(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            if (!destroyed) {
+                destroyed = true
+                mapView.onDestroy()
+            }
         }
     }
 

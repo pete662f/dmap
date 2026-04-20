@@ -1,17 +1,26 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const { afterEach, test } = require('node:test');
 const {
   buildUpstreamTileUrl,
   createServer,
   parseTilePath,
+  readToken,
 } = require('./server');
 
 const servers = [];
+const envSnapshot = { ...process.env };
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => closeServer(server)));
+  for (const key of Object.keys(process.env)) {
+    delete process.env[key];
+  }
+  Object.assign(process.env, envSnapshot);
 });
 
 test('healthz returns token status without leaking token', async () => {
@@ -30,6 +39,25 @@ test('missing token returns 503 for tile requests', async () => {
 
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: 'orthofoto_token_missing' });
+});
+
+test('token file takes precedence over environment token', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dmap-token-'));
+  const tokenFile = path.join(tempDir, 'token');
+  await fs.writeFile(tokenFile, ' file-token \n', 'utf8');
+  process.env.DMAP_ORTHOFOTO_TOKEN = 'env-token';
+  process.env.DMAP_ORTHOFOTO_TOKEN_FILE = tokenFile;
+
+  assert.equal(readToken(), 'file-token');
+
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+test('environment token is used when token file is absent', () => {
+  process.env.DMAP_ORTHOFOTO_TOKEN = 'env-token';
+  delete process.env.DMAP_ORTHOFOTO_TOKEN_FILE;
+
+  assert.equal(readToken(), 'env-token');
 });
 
 test('invalid and out of range tile paths are rejected', () => {
@@ -87,6 +115,55 @@ test('valid tile request forwards expected WMTS parameters', async () => {
   assert.equal(upstreamUrl.searchParams.get('tileRow'), '322');
   assert.equal(upstreamUrl.searchParams.get('tileCol'), '547');
   assert.equal(upstreamUrl.searchParams.get('token'), 'secret-token');
+});
+
+test('upstream timeout returns 504', async () => {
+  const fetchImpl = async (_url, init) => {
+    await new Promise((resolve, reject) => {
+      init.signal.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      });
+      setTimeout(resolve, 1000);
+    });
+    return new Response(Buffer.from([1]), {
+      status: 200,
+      headers: { 'content-type': 'image/jpeg' },
+    });
+  };
+  const baseUrl = await listen(
+    createServer({
+      token: 'secret-token',
+      upstreamUrl: 'https://example.com/orto',
+      timeoutMs: 10,
+      fetchImpl,
+    }),
+  );
+
+  const response = await fetch(`${baseUrl}/ortofoto/tiles/10/547/322.jpg`);
+
+  assert.equal(response.status, 504);
+  assert.deepEqual(await response.json(), { error: 'upstream_tile_timeout' });
+});
+
+test('invalid upstream content type returns 502', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({ error: 'nope' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  const baseUrl = await listen(
+    createServer({
+      token: 'secret-token',
+      upstreamUrl: 'https://example.com/orto',
+      fetchImpl,
+    }),
+  );
+
+  const response = await fetch(`${baseUrl}/ortofoto/tiles/10/547/322.jpg`);
+
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: 'invalid_upstream_tile' });
 });
 
 test('buildUpstreamTileUrl preserves existing upstream query params', () => {

@@ -17,6 +17,12 @@ data class MapBackendConfig(
             imageryBaseUrl: String? = null,
         ): MapBackendConfig {
             val normalizedBaseUrl = baseUrl.trim().removeSuffix("/")
+            require(normalizedBaseUrl.isNotBlank()) {
+                "Map backend URL must not be blank."
+            }
+            require(normalizedBaseUrl.startsWith("http://") || normalizedBaseUrl.startsWith("https://")) {
+                "Map backend URL must start with http:// or https://."
+            }
             return MapBackendConfig(
                 baseUrl = normalizedBaseUrl,
                 searchBaseUrl = searchBaseUrl?.trim()?.removeSuffix("/")?.ifBlank { null },

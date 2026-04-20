@@ -3,7 +3,11 @@ services:
     image: maptiler/tileserver-gl-light:v5.5.0
     container_name: dmap2-tileserver
     ports:
-      - "8080:8080"
+      - "${DMAP_BIND_HOST:-127.0.0.1}:8080:8080"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./tileserver:/data
       - ./data:/data/data:ro
@@ -13,7 +17,12 @@ services:
       context: ./services/photon
     container_name: dmap2-photon
     ports:
-      - "8081:2322"
+      - "${DMAP_BIND_HOST:-127.0.0.1}:8081:2322"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 3g
     environment:
       PHOTON_CORS_MODE: any
       PHOTON_DEFAULT_LANGUAGE: da
@@ -43,13 +52,21 @@ services:
       context: ./services/ortofoto-proxy
     container_name: dmap2-ortofoto-proxy
     ports:
-      - "8083:8080"
+      - "${DMAP_BIND_HOST:-127.0.0.1}:8083:8080"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 256m
     environment:
       DMAP_ORTHOFOTO_TOKEN: ${DMAP_ORTHOFOTO_TOKEN:-}
+      DMAP_ORTHOFOTO_TOKEN_FILE: ${DMAP_ORTHOFOTO_TOKEN_FILE:-}
+      DMAP_ORTHOFOTO_TIMEOUT_MS: ${DMAP_ORTHOFOTO_TIMEOUT_MS:-8000}
       DMAP_ORTHOFOTO_UPSTREAM_URL: ${DMAP_ORTHOFOTO_UPSTREAM_URL:-https://api.dataforsyningen.dk/orto_foraar_webm_DAF}
     restart: unless-stopped
 
 volumes:
   photon_data:
-    name: photon_data
+    name: ${PHOTON_DATA_VOLUME_NAME:-dmap2_photon_data}
     external: true

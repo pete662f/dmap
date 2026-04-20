@@ -29,6 +29,29 @@ clone_or_checkout() {
 
 mkdir -p "${CACHE_DIR}" "${STYLE_OUT_DIR}" "${FONTS_OUT_DIR}"
 
+verify_sha256_if_configured() {
+  local file="$1"
+  local expected="$2"
+  local actual
+
+  if [[ -z "${expected}" ]]; then
+    return 0
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "${file}" | awk '{print $1}')"
+  else
+    actual="$(sha256sum "${file}" | awk '{print $1}')"
+  fi
+
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "SHA256 verification failed for ${file}." >&2
+    echo "Expected: ${expected}" >&2
+    echo "Actual:   ${actual}" >&2
+    exit 1
+  fi
+}
+
 echo "==> Cloning pinned OSM Liberty"
 clone_or_checkout "https://github.com/maputnik/osm-liberty.git" "${OSM_LIBERTY_GIT_REF}" "${OSM_LIBERTY_DIR}"
 
@@ -75,8 +98,12 @@ rm -rf "${FONTS_OUT_DIR:?}"/*
 
 if [[ ! -f "${FONTS_RELEASE_ZIP}" ]]; then
   echo "==> Downloading OpenMapTiles prebuilt fonts release"
-  curl -fsSL -o "${FONTS_RELEASE_ZIP}" "${OPENMAPTILES_FONTS_RELEASE_URL}"
+  rm -f "${FONTS_RELEASE_ZIP}.tmp"
+  curl -fsSL -o "${FONTS_RELEASE_ZIP}.tmp" "${OPENMAPTILES_FONTS_RELEASE_URL}"
+  verify_sha256_if_configured "${FONTS_RELEASE_ZIP}.tmp" "${OPENMAPTILES_FONTS_RELEASE_SHA256:-}"
+  mv "${FONTS_RELEASE_ZIP}.tmp" "${FONTS_RELEASE_ZIP}"
 fi
+verify_sha256_if_configured "${FONTS_RELEASE_ZIP}" "${OPENMAPTILES_FONTS_RELEASE_SHA256:-}"
 
 if [[ ! -d "${FONTS_RELEASE_DIR}" ]]; then
   mkdir -p "${FONTS_RELEASE_DIR}"

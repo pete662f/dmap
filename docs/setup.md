@@ -4,7 +4,7 @@
 
 - Docker Desktop or compatible Docker Engine with `docker compose`
 - Android Studio with Android SDK installed
-- Java 17+ for Android builds
+- Java 17 for Android Gradle tasks; Java 21 also works through `./infra/scripts/build-apk.sh`
 - `zstd` for Photon dump import during backend bootstrap
 
 Notes for this machine shape:
@@ -71,7 +71,7 @@ You can still generate the MBTiles on another machine and install it here if you
 ./infra/scripts/up-backend.sh
 ```
 
-Before `docker compose up`, the startup script now syncs the host-side Photon dataset into a Docker-managed `photon_data` volume. That keeps the live OpenSearch index off the macOS bind mount while leaving the jar and imported source artifacts under `infra/data/search/photon/`.
+Before starting Compose, the startup script syncs the host-side Photon dataset into a Docker-managed `dmap2_photon_data` volume. That keeps the live OpenSearch index off the macOS bind mount while leaving the jar and imported source artifacts under `infra/data/search/photon/`.
 
 Photon runtime defaults:
 
@@ -90,13 +90,25 @@ Useful endpoints:
 - `http://localhost:8083/healthz`
 - `http://localhost:8083/ortofoto/tilejson.json`
 
-Ortofoto imagery is served through a local proxy so the Dataforsyningen credential is not compiled into the Android APK. To enable tile forwarding, add this to the repo root `.env`:
+Backend ports bind to `127.0.0.1` by default. For physical-device testing, add this to the repo root `.env` before starting the backend:
+
+```dotenv
+DMAP_BIND_HOST=0.0.0.0
+```
+
+Ortofoto imagery is served through a local proxy so the Dataforsyningen credential is not compiled into the Android APK. To enable tile forwarding, prefer a token file outside the repo tree:
+
+```dotenv
+DMAP_ORTHOFOTO_TOKEN_FILE=/Users/you/.config/dmap2/ortofoto-token
+```
+
+The legacy environment variable is still supported:
 
 ```dotenv
 DMAP_ORTHOFOTO_TOKEN=your-dataforsyningen-token
 ```
 
-Without `DMAP_ORTHOFOTO_TOKEN`, the proxy still starts and reports healthy, but tile requests return `503`.
+Without `DMAP_ORTHOFOTO_TOKEN_FILE` or `DMAP_ORTHOFOTO_TOKEN`, the proxy still starts and reports healthy, but tile requests return `503`.
 
 ### Verify the backend
 
@@ -105,7 +117,7 @@ Without `DMAP_ORTHOFOTO_TOKEN`, the proxy still starts and reports healthy, but 
 ```
 
 The verification script checks the tile backend, Photon search backend, and Ortofoto proxy health.
-If `DMAP_ORTHOFOTO_TOKEN` is set, it also checks one Ortofoto tile request.
+If `DMAP_ORTHOFOTO_TOKEN_FILE` or `DMAP_ORTHOFOTO_TOKEN` is set, it also checks one Ortofoto tile request.
 When no explicit URLs are passed, it resolves backend URLs from the repo root `.env`.
 
 ### Benchmark the backend
@@ -142,6 +154,7 @@ For a physical device, set your Mac's LAN IP in the repo root `.env`:
 
 ```dotenv
 DMAP_HOST_IP=192.168.0.195
+DMAP_BIND_HOST=0.0.0.0
 ```
 
 This is the shared default source for the Android build and the backend helper scripts.
@@ -170,10 +183,11 @@ After the build, confirm the compiled backend URLs before installing:
 Physical-device flow:
 
 1. Set `DMAP_HOST_IP` in the repo root `.env`
-2. Start the backends with `./infra/scripts/up-backend.sh`
-3. Rebuild and reinstall the Android app
-4. Ensure the phone and Mac are on the same Wi-Fi or LAN
-5. If the app still cannot connect, test these URLs directly from the phone browser:
+2. Set `DMAP_BIND_HOST=0.0.0.0` or your Mac LAN IP so the phone can reach backend ports
+3. Start the backends with `./infra/scripts/up-backend.sh`
+4. Rebuild and reinstall the Android app
+5. Ensure the phone and Mac are on the same Wi-Fi or LAN
+6. If the app still cannot connect, test these URLs directly from the phone browser:
    - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
    - `http://<mac-ip>:8081/status`
    - `http://<mac-ip>:8083/healthz`
@@ -182,8 +196,8 @@ If the app UI shows `Backend: http://10.0.2.2:8080`, the installed APK was compi
 
 The Android build can also read backend settings from the repo root `.env`:
 
-- `DMAP_HOST_IP=192.168.1.10` derives backend URLs for ports `8080`, `8081`, `8082`, and `8083`
-- or use explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, `DMAP_ROUTING_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
+- `DMAP_HOST_IP=192.168.1.10` derives backend URLs for ports `8080`, `8081`, and `8083`
+- or use explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
 
 Precedence is:
 
@@ -197,6 +211,8 @@ Optional:
 - release build: `./infra/scripts/build-apk.sh --release`
 - override backend URLs for the build:
   `./infra/scripts/build-apk.sh --backend-url http://192.168.1.10:8080 --search-backend-url http://192.168.1.10:8081 --imagery-backend-url http://192.168.1.10:8083`
+- run unit tests directly:
+  `cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew testDebugUnitTest`
 
 The shared repo `.env` is used by:
 

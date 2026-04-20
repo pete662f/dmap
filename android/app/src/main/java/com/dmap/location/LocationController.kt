@@ -31,10 +31,16 @@ class LocationController(
     private val dotAccuracy = ContextCompat.getColor(context, R.color.location_accuracy_blue)
 
     fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        ) == PackageManager.PERMISSION_GRANTED
+        return hasAnyLocationPermission(
+            finePermissionGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED,
+            coarsePermissionGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED,
+        )
     }
 
     fun enableLocation(mapLibreMap: MapLibreMap, style: Style) {
@@ -107,5 +113,14 @@ class LocationController(
             durationMs,
         )
         return LocateMeResult.Centered
+    }
+
+    companion object {
+        internal fun hasAnyLocationPermission(
+            finePermissionGranted: Boolean,
+            coarsePermissionGranted: Boolean,
+        ): Boolean {
+            return finePermissionGranted || coarsePermissionGranted
+        }
     }
 }
