@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="#2a78d6,#eb6834,#1baf7a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dmap2 — Stack Review &amp; Learnings</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --surface-2: #f0efec;
+    --border:    #dedcd6;
+    --border-strong: #c6c3bb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #757370;
+    --accent:  #2a78d6;
+    --accent-soft: #eaf1fc;
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --serious:  #ec835a;
+    --critical: #d03b3b;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --border:    #343431;
+      --border-strong: #4a4a46;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #97968d;
+      --accent: #3987e5;
+      --accent-soft: #1d2c3f;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.masthead { border-bottom: 1px solid var(--border); padding-bottom: 28px; margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 { font-size: 38px; line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; font-weight: 650; }
+  .lede { font-size: 18px; color: var(--text-secondary); margin: 0; max-width: 68ch; }
+  .meta { margin-top: 18px; font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+
+  h2 {
+    font-size: 13px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
+    color: var(--text-muted); margin: 56px 0 18px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 20px; margin: 32px 0 10px; font-weight: 620; letter-spacing: -.01em; }
+  h4 { font-size: 15px; margin: 0 0 6px; font-weight: 640; }
+  p  { margin: 0 0 14px; color: var(--text-secondary); }
+  p.tight { margin-bottom: 8px; }
+  strong { color: var(--text-primary); font-weight: 620; }
+  a { color: var(--accent); }
+
+  code, .path {
+    font-family: var(--mono); font-size: .875em;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px; color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  /* ---- KPI row ---- */
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin: 0 0 8px;
+  }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 16px 14px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin: 0 0 6px; line-height: 1.3; }
+  .tile .value { font-size: 30px; font-weight: 640; letter-spacing: -.02em; line-height: 1.05; color: var(--text-primary); }
+  .tile .sub   { font-size: 12px; color: var(--text-muted); margin-top: 5px; font-family: var(--mono); }
+
+  /* ---- status chips (icon + label; never colour alone) ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 640; letter-spacing: .02em;
+    padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--border-strong); background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .chip.keep   .dot { background: var(--good); }
+  .chip.adjust .dot { background: var(--warning); }
+  .chip.rework .dot { background: var(--serious); }
+  .chip.drop   .dot { background: var(--critical); }
+
+  /* ---- tables ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th {
+    font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 660; background: var(--surface-2);
+    position: sticky; top: 0;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  td .sub { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ---- finding cards ---- */
+  .finding {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-left: 3px solid var(--border-strong);
+    border-radius: 8px; padding: 18px 20px; margin: 0 0 14px;
+  }
+  .finding.sev-high { border-left-color: var(--critical); }
+  .finding.sev-med  { border-left-color: var(--serious); }
+  .finding.sev-low  { border-left-color: var(--warning); }
+  .finding.sev-good { border-left-color: var(--good); }
+  .finding .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .finding .head h4 { margin: 0; }
+  .finding .idx { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+  .finding p:last-child { margin-bottom: 0; }
+  .evidence {
+    font-family: var(--mono); font-size: 12.5px; color: var(--text-muted);
+    background: var(--surface-2); border-radius: 6px; padding: 8px 10px;
+    margin: 10px 0; line-height: 1.55; border: 1px solid var(--border);
+  }
+  .verdict {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+    font-size: 14.5px; color: var(--text-primary);
+  }
+  .verdict b { color: var(--accent); font-weight: 660; letter-spacing: .02em; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--text-secondary); }
+  li { margin-bottom: 5px; }
+  li::marker { color: var(--text-muted); }
+
+  .callout {
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout h4 { color: var(--text-primary); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+
+  footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Engineering review</p>
+  <h1>dmap2 — what the stack taught us</h1>
+  <p class="lede">
+    A component-by-component review of the Denmark-first self-hosted map stack, written as input
+    to a ground-up rebuild. Every finding is anchored to code in this repository.
+  </p>
+  <p class="meta">Reviewed 2026-07-27 · main @ 48820fe · 39 commits · Milestone M2 complete, M3 not started</p>
+</header>
+
+<h2>At a glance</h2>
+<div class="kpis">
+  <div class="tile">
+    <p class="label">Kotlin, app source</p>
+    <div class="value">3,484</div>
+    <div class="sub">lines · 35 files</div>
+  </div>
+  <div class="tile">
+    <p class="label">Kotlin, unit tests</p>
+    <div class="value">1,845</div>
+    <div class="sub">lines · 8 files</div>
+  </div>
+  <div class="tile">
+    <p class="label">Infra scripting</p>
+    <div class="value">2,613</div>
+    <div class="sub">lines · bash + python + node</div>
+  </div>
+  <div class="tile">
+    <p class="label">Local build artifacts</p>
+    <div class="value">6.5 GB</div>
+    <div class="sub">inside the repo tree</div>
+  </div>
+  <div class="tile">
+    <p class="label">Backend services</p>
+    <div class="value">3</div>
+    <div class="sub">tiles · search · imagery</div>
+  </div>
+  <div class="tile">
+    <p class="label">CI jobs</p>
+    <div class="value">0</div>
+    <div class="sub">no .github/workflows</div>
+  </div>
+</div>
+
+<h2>Executive summary</h2>
+
+<p>
+  dmap2 set out to prove that a fully self-hosted, Denmark-first consumer map app is buildable by one
+  person on a laptop, and it proved exactly that. Vector tiles, style, glyphs, sprites, place search,
+  reverse geocoding and orthophoto imagery all run locally with no third-party map key anywhere in the
+  client. The service boundaries the project chose up front — <code>SearchService</code>,
+  <code>RoutingService</code>, <code>MapStyleLoader</code>, <code>OrtofotoLayerController</code> — held up
+  when real implementations landed behind them. That is the headline result: <strong>the seams were right</strong>.
+</p>
+
+<p>
+  The cost was concentrated in three places, and all three are structural rather than cosmetic. First,
+  <strong>POI identity is reverse-engineered from pixels</strong>: because the vector tiles carry no stable place id
+  the app has to re-derive "what did the user tap" from rendered symbol geometry, which spawned a
+  548-line hit detector, 790 lines of tests for it, and a whole second tile pipeline (tippecanoe, 81 MB
+  of extra MBTiles) whose only job is to provide invisible hit-boxes. Second, <strong>Photon is the heaviest
+  component by a wide margin</strong> and it fought back: JVM tuning, an 885 MB index, and an 85-line script
+  that copies that index into a Docker volume with ownership markers because bind-mounting it was not
+  reliable. Third, <strong>backend configuration is compile-time</strong>, which turned a one-line question — which
+  host am I pointed at? — into a four-level precedence chain, two verification scripts, and a
+  troubleshooting section in two separate docs.
+</p>
+
+<p>
+  Nothing here argues for a different platform or a different map engine. Kotlin + Compose + MapLibre
+  Native + Planetiler + OSM Liberty is the right spine and should be carried forward essentially intact.
+  The rebuild should keep the seams, keep the deterministic style patch discipline, keep the
+  dependency-free imagery proxy, and then attack the three structural costs directly: put stable ids in
+  the tiles, treat search as swappable data rather than a pinned service, and make the backend a runtime
+  setting.
+</p>
+
+<div class="callout">
+  <h4>The one-sentence carry-forward</h4>
+  <p>
+    Keep the architecture, replace the plumbing: the app's service boundaries were correct and cheap, but
+    every place where the app had to <em>infer</em> something the data should have told it directly became
+    the most expensive code in the repository.
+  </p>
+</div>
+
+<h2>Stack inventory</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Layer</th><th>What we used</th><th>Verdict</th><th>Reasoning</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Tile generation</b><span class="sub">infra/scripts/bootstrap-denmark.sh</span></td>
+      <td>Planetiler 0.10.2, OpenMapTiles profile, in Docker</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep</span></td>
+      <td>Single container, no PostGIS, works on Apple Silicon, ~350 MB output for Denmark. The best decision in the repo.</td>
+    </tr>
+    <tr>
+      <td><b>Tile serving</b><span class="sub">infra/compose.yaml</span></td>
+      <td>TileServer GL Light v5.5.0</td>
+      <td><span class="chip adjust"><span class="dot"></span>Keep for dev</span></td>
+      <td>Fine locally and never the latency bottleneck. But it is a Node server in front of a static-ish artifact; PMTiles + range requests is the simpler production shape.</td>
+    </tr>
+    <tr>
+      <td><b>Cartography</b><span class="sub">infra/scripts/patch-mobile-style.py</span></td>
+      <td>OSM Liberty pinned to a commit + a 254-line deterministic Python patch</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep the pattern</span></td>
+      <td>Patch-don't-fork was correct and is covered by a test. But the patch now does real cartography and fails hard (<code>KeyError</code>) if upstream renames a layer.</td>
+    </tr>
+    <tr>
+      <td><b>Glyphs &amp; sprites</b><span class="sub">infra/scripts/prepare-style-assets.sh</span></td>
+      <td>Prefetched OpenMapTiles font release; sprites copied from OSM Liberty</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep</span></td>
+      <td>Avoided the fontnik native-toolchain trap on arm64. Runtime is fully self-hosted with zero public font endpoints.</td>
+    </tr>
+    <tr>
+      <td><b>POI hit-boxes</b><span class="sub">infra/services/poi-area-tiles/</span></td>
+      <td>Custom osmium/tippecanoe pipeline → 81 MB second MBTiles, injected as an invisible fill layer</td>
+      <td><span class="chip rework"><span class="dot"></span>Rework</span></td>
+      <td>An entire tile pipeline built to work around missing feature ids. Solve it in the main tile build instead.</td>
+    </tr>
+    <tr>
+      <td><b>Place search</b><span class="sub">infra/services/photon/</span></td>
+      <td>Photon 1.0.1 + GraphHopper Denmark JSON dump, JVM, embedded index</td>
+      <td><span class="chip rework"><span class="dot"></span>Rework</span></td>
+      <td>Works, but 885 MB, 2–3 GB RAM, slow first import, needed JVM flags and a volume-sync workaround. Heaviest, most fragile piece.</td>
+    </tr>
+    <tr>
+      <td><b>Imagery</b><span class="sub">infra/services/ortofoto-proxy/</span></td>
+      <td>Dependency-free Node HTTP proxy for GeoDanmark Ortofoto, token server-side only</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep</span></td>
+      <td>~250 lines, zero npm deps, <code>node --test</code> coverage, read-only hardened container. Model for every future upstream integration.</td>
+    </tr>
+    <tr>
+      <td><b>Routing</b><span class="sub">services/routing/</span></td>
+      <td>Interface + stub only; Valhalla deferred, port 8082 reserved</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep the seam</span></td>
+      <td>Cost ~16 lines to reserve, kept M3 unblocked without carrying an unused service.</td>
+    </tr>
+    <tr>
+      <td><b>Orchestration</b><span class="sub">infra/compose.yaml</span></td>
+      <td>Docker Compose, <code>cap_drop: ALL</code>, <code>no-new-privileges</code>, <code>read_only</code>, mem limits, localhost binding by default</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep</span></td>
+      <td>Security posture is genuinely good for a hobby stack and cost almost nothing. The <code>external: true</code> volume is the one rough edge.</td>
+    </tr>
+    <tr>
+      <td><b>Build automation</b><span class="sub">infra/scripts/ (10 files)</span></td>
+      <td>Hand-rolled bash with hash-marker incrementality</td>
+      <td><span class="chip adjust"><span class="dot"></span>Change</span></td>
+      <td>The incrementality logic is clever and correct, but it is a build system re-implemented in ~1,900 lines of bash without a dependency graph.</td>
+    </tr>
+    <tr>
+      <td><b>App shell</b><span class="sub">android/</span></td>
+      <td>Kotlin 2.0.21, Compose BOM 2024.10, Material 3, minSdk 26 / target 35</td>
+      <td><span class="chip keep"><span class="dot"></span>Keep, refresh versions</span></td>
+      <td>Right platform choice. Versions are ~1.5 years stale for a 2026 rebuild.</td>
+    </tr>
+    <tr>
+      <td><b>Map SDK</b><span class="sub">org.maplibre.gl:android-sdk:13.0.2</span></td>
+      <td>MapLibre Native Android, wrapped in <code>AndroidView</code></td>
+      <td><span class="chip keep"><span class="dot"></span>Keep</span></td>
+      <td>Only realistic self-hosted vector option on Android. The Compose interop friction is real but manageable with an explicit controller.</td>
+    </tr>
+    <tr>
+      <td><b>App state</b><span class="sub">map/MapViewModel.kt</span></td>
+      <td>One ViewModel (655 lines), one <code>MapUiState</code> with 13 fields, manual DI via <code>AppContainer</code></td>
+      <td><span class="chip adjust"><span class="dot"></span>Change</span></td>
+      <td>Manual DI was right at this size. The single god-ViewModel was not — it already mixes camera, permissions, search, selection, overlays and backend health.</td>
+    </tr>
+    <tr>
+      <td><b>Networking</b><span class="sub">services/search/</span></td>
+      <td>OkHttp 4.12 + kotlinx-serialization JSON DSL, hand-walked <code>JsonObject</code>s</td>
+      <td><span class="chip adjust"><span class="dot"></span>Change</span></td>
+      <td>185 lines of manual JSON digging where <code>@Serializable</code> DTOs plus the plugin would be ~40. The serialization Gradle plugin is not even applied.</td>
+    </tr>
+    <tr>
+      <td><b>Persistence</b><span class="sub">—</span></td>
+      <td>None. No DataStore, no Room, no recents, no favourites, no saved settings</td>
+      <td><span class="chip drop"><span class="dot"></span>Gap</span></td>
+      <td>Not a bug in M2's scope, but it means no repository layer exists. Adding one later changes the shape of every feature.</td>
+    </tr>
+    <tr>
+      <td><b>Quality gates</b><span class="sub">—</span></td>
+      <td>Unit tests only. No CI, no lint gate, no ktlint/detekt, no instrumentation or screenshot tests</td>
+      <td><span class="chip drop"><span class="dot"></span>Gap</span></td>
+      <td>Test <em>content</em> is good (1,845 lines, concentrated exactly where the logic is hairy). Nothing enforces it.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>What worked — carry it forward unchanged</h2>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W1</span><h4>Service seams declared before implementations existed</h4></div>
+  <p>
+    <code>SearchService</code> and <code>RoutingService</code> were interfaces with stubs from M0. When Photon
+    landed in M2, the entire UI layer was untouched: <code>PhotonSearchService</code> dropped in behind the
+    same contract, and <code>UnavailableSearchService</code> covers the not-configured case without a single
+    null check in the ViewModel.
+  </p>
+  <div class="evidence">android/app/src/main/java/com/dmap/services/search/SearchService.kt — 16 lines<br>…/UnavailableSearchService.kt — 21 lines · …/StubRoutingService.kt — 8 lines</div>
+  <div class="verdict"><b>Carry forward:</b> declare every backend as an interface + explicit unavailable implementation on day one, even for milestones you have not scoped yet.</div>
+</div>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W2</span><h4>Patch the upstream style, never fork it</h4></div>
+  <p>
+    <code>style.json</code> is generated: clone a pinned OSM Liberty commit, rewrite it for self-hosting, then
+    apply <code>patch-mobile-style.py</code>. Nobody hand-edits generated output, so the mobile cartography
+    is reviewable as a diff of intent rather than a diff of 4,000 lines of JSON.
+  </p>
+  <div class="evidence">infra/scripts/prepare-style-assets.sh + patch-mobile-style.py (254 lines)<br>covered by infra/scripts/test_patch_mobile_style.py (103 lines)</div>
+  <div class="verdict"><b>Carry forward:</b> the pattern and its test. See F5 for the one change needed.</div>
+</div>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W3</span><h4>Credentials terminate at a tiny proxy, never in the client</h4></div>
+  <p>
+    The Dataforsyningen token exists only inside <code>ortofoto-proxy</code>. Android calls an unauthenticated
+    <code>/ortofoto/tiles/{z}/{x}/{y}.jpg</code>. Missing token degrades to HTTP 503 instead of blocking backend
+    startup, and the container is <code>read_only</code> with a 256 MB limit. Zero npm dependencies means zero
+    supply-chain surface and no lockfile churn.
+  </p>
+  <div class="evidence">infra/services/ortofoto-proxy/server.js — ~250 lines, 0 deps, node --test coverage</div>
+  <div class="verdict"><b>Carry forward:</b> make this the template for every third-party upstream. One tiny gateway per upstream, dependency-free, health endpoint, degrade-don't-crash.</div>
+</div>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W4</span><h4>Bootstrap is incremental and honest about it</h4></div>
+  <p>
+    Marker files record the hashes of the <em>scripts themselves</em> alongside pinned upstream refs, so
+    changing the style patch invalidates the style output but not the 40-minute Planetiler run. Repeat
+    bootstraps are near-instant, and <code>FORCE_REBUILD</code> / <code>REFRESH</code> give explicit escape hatches.
+  </p>
+  <div class="evidence">prepare-style-assets.sh → .asset-version · bootstrap-photon.sh → .dataset-version</div>
+  <div class="verdict"><b>Carry forward:</b> the idea (hash the recipe, not just the inputs). See F6 for the delivery mechanism.</div>
+</div>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W5</span><h4>Tests were written where the logic is actually hard</h4></div>
+  <p>
+    790 of 1,845 test lines target the POI hit detector, and 503 target coordinate selection. That ratio is
+    not accidental — it maps precisely onto the parts of the app that are pure decision logic. Meanwhile
+    <code>RenderedPoiHitDetector</code> was deliberately structured so the MapLibre-dependent shell is thin and
+    the ranking logic is injectable via lambdas, which is why it is testable on the JVM at all.
+  </p>
+  <div class="verdict"><b>Carry forward:</b> keep pushing decisions out of the SDK-facing shell into pure functions with lambda seams.</div>
+</div>
+
+<div class="finding sev-good">
+  <div class="head"><span class="idx">W6</span><h4>Documented tradeoffs, not just documented commands</h4></div>
+  <p>
+    <code>docs/setup.md</code> explains <em>why</em> Planetiler replaced the OpenMapTiles PostGIS quickstart, why glyphs
+    are downloaded rather than built, and why the Ortofoto proxy targets the Web Mercator WMTS endpoint. That
+    is what let this review reconstruct intent from a cold start.
+  </p>
+  <div class="verdict"><b>Carry forward:</b> a "Backend tradeoffs" section per subsystem. See F9 for the one thing to change about doc structure.</div>
+</div>
+
+<h2>What hurt — fix it in the rebuild</h2>
+
+<div class="finding sev-high">
+  <div class="head"><span class="idx">F1</span><h4>POI identity is reverse-engineered from rendered pixels</h4><span class="chip rework"><span class="dot"></span>Highest cost</span></div>
+  <p>
+    Tapping a POI does not look anything up. It queries rendered features across four style layers in
+    priority order, parses loose <code>class</code>/<code>subclass</code>/<code>name</code> properties, scores candidates by
+    squared screen distance, then runs a <em>second</em> query against an invisible fill layer to guess which
+    polygon the point belongs to — matching on normalised title, then on class, with a six-key comparator
+    and a hard-coded list of "generic" titles to exclude. When no <code>osm_id</code> is present it synthesises an
+    id by concatenating class, subclass, name and coordinates.
+  </p>
+  <div class="evidence">RenderedPoiHitDetector.kt — 548 lines<br>RenderedPoiHitDetectorTest.kt — 790 lines<br>infra/services/poi-area-tiles/ — a whole tippecanoe pipeline → denmark-poi-areas.mbtiles (81 MB)<br>patch-mobile-style.py — injects layer "dmap_poi_area_hitbox" at fill-opacity 0.001</div>
+  <p>
+    Then, because the tile properties are too thin to display, every POI tap fires a reverse-geocode
+    against Photon and merges the result back in only if it lands within 25 m — a network round-trip to
+    recover data the tile already almost had.
+  </p>
+  <div class="verdict">
+    <b>Fix:</b> put a stable <code>osm_type:osm_id</code> and a real category on POI features in the main Planetiler
+    build (custom profile or a post-pass), and back it with a small local place-detail lookup. The hit
+    detector collapses to "query one layer, read the id, fetch the record" — call it 80 lines. Delete the
+    second tile pipeline, the invisible layer, the area-matching comparator, and the 25 m enrichment hack.
+  </div>
+</div>
+
+<div class="finding sev-high">
+  <div class="head"><span class="idx">F2</span><h4>Photon is the heaviest and least cooperative component</h4><span class="chip rework"><span class="dot"></span>High cost</span></div>
+  <p>
+    Photon needs a JVM, 2–3 GB of RAM, an 885 MB embedded index, and a slow first import from a compressed
+    JSON dump. The repo already carries three separate mitigations for it: explicit <code>-Xms/-Xmx</code> plus
+    incubator Vector API flags to stop first-query latency depending on heap growth; a switch from
+    unpacking the prebuilt DB to importing the JSON dump because that was "more reliable with Photon 1.0.1";
+    and an 85-line script that copies the index into a Docker-managed volume with an ownership-marker
+    protocol, because bind-mounting it was not good enough.
+  </p>
+  <div class="evidence">infra/scripts/sync-photon-volume.sh — 85 lines, embeds a shell script inside docker run<br>compose.yaml — mem_limit 3g, PHOTON_JAVA_EXTRA_FLAGS, external volume dmap2_photon_data<br>infra/data/search/photon — 885 MB on disk, duplicated again inside the volume</div>
+  <p>
+    The volume is declared <code>external: true</code>, so Compose alone cannot start the stack — it only works
+    through <code>up-backend.sh</code>. That is a hidden coupling between orchestration and a helper script.
+  </p>
+  <div class="verdict">
+    <b>Fix:</b> keep the <code>SearchService</code> contract (it is what makes this replaceable) and re-evaluate the
+    implementation. For a Denmark-only product, an address/POI index built directly from the OSM extract you
+    already download — plus the official Danish address data as an optional enrichment — can be a single
+    SQLite/FTS or Typesense-class index measured in tens of megabytes, with no JVM. Treat Photon as the
+    fallback, not the default. If Photon stays, make the volume internal and let Compose own its lifecycle.
+  </div>
+</div>
+
+<div class="finding sev-med">
+  <div class="head"><span class="idx">F3</span><h4>Backend URLs are compile-time, so "which backend?" became a subsystem</h4><span class="chip rework"><span class="dot"></span>High friction</span></div>
+  <p>
+    Backend addresses are baked into <code>BuildConfig</code> through a four-level precedence chain: Gradle
+    <code>-P</code>, then <code>local.properties</code>, then a repo-root <code>.env</code> parsed by ~120 lines of hand-written
+    Kotlin DSL, then emulator defaults. Supporting that requires a script that prints the compiled URLs
+    after every build, a second script that verifies them, and a troubleshooting paragraph — repeated in
+    both README and setup.md — explaining that if the UI shows <code>10.0.2.2</code> you must rebuild and reinstall.
+  </p>
+  <div class="evidence">android/app/build.gradle.kts — ~120 lines of .env parsing and URL validation before the android { } block<br>infra/scripts/build-apk.sh (248 lines) · verify-android-build-config.sh (68 lines)<br>README.md + docs/setup.md — both carry the same physical-device checklist</div>
+  <div class="verdict">
+    <b>Fix:</b> ship build-time defaults only, and make the effective backend a <em>runtime</em> setting stored in
+    DataStore, editable from a debug drawer. Switching from emulator to phone to a LAN box becomes a text
+    field instead of a rebuild. Both verification scripts and the entire troubleshooting section disappear.
+  </div>
+</div>
+
+<div class="finding sev-med">
+  <div class="head"><span class="idx">F4</span><h4>Compose ↔ MapLibre is glued together with ten side effects</h4></div>
+  <p>
+    <code>MapRuntimeEffects</code> holds ten <code>LaunchedEffect</code>/<code>DisposableEffect</code> blocks that push
+    declarative state into an imperative <code>MapLibreMap</code>: style loading, camera flights, marker rendering,
+    area highlight, imagery layer, five gesture listeners, overlay auto-dismiss. Ordering between them is
+    implicit in their keys. One of them is a <code>while (isActive) { delay(1_500) }</code> poll asking the location
+    component whether it has a fix yet, because no callback was wired up.
+  </p>
+  <div class="evidence">MapRuntimeEffects.kt — 229 lines, 10 effect blocks<br>MapScreen.kt was 947 lines before the in-flight split into MapScreen / MapScreenUi / MapRuntimeEffects / MapViewLifecycle</div>
+  <p>
+    The uncommitted refactor currently in the working tree does the right thing and should be treated as a
+    finished conclusion, not work in progress: a screen file, a pure-UI file, an effects file, and a
+    lifecycle file.
+  </p>
+  <div class="verdict">
+    <b>Fix:</b> introduce an explicit <code>MapController</code> that owns the <code>MapLibreMap</code>, exposes suspend
+    commands (<code>flyTo</code>, <code>setBaseLayer</code>, <code>showSelection</code>) and a <code>Flow</code> of map events. Compose
+    then has one effect that collects events and one that issues commands. Replace the location poll with a
+    real <code>LocationEngine</code> callback exposed as a <code>Flow</code>.
+  </div>
+</div>
+
+<div class="finding sev-low">
+  <div class="head"><span class="idx">F5</span><h4>The style patch is imperative and brittle at the seams</h4></div>
+  <p>
+    <code>patch-mobile-style.py</code> mutates upstream layers by id and raises <code>KeyError</code> if one is missing —
+    which is the correct failure mode, but it means any upstream refresh is a potential hard stop, and the
+    file is now a mix of colour tuning, zoom/rank filtering, new layer injection and layer-order surgery
+    with explicit before-lists.
+  </p>
+  <div class="evidence">patch-mobile-style.py — 254 lines: 5 paint overrides, 3 place layers, 4 POI layers, road label + shield, 2 injected layers</div>
+  <div class="verdict">
+    <b>Fix:</b> split it in two — a declarative <code>style-overrides.json</code> (paint/layout/filter by layer id,
+    diffable, reviewable) applied by a ~60-line generic applier, and a separate explicit step for
+    <em>injected</em> layers. Add a schema check that every referenced upstream layer id still exists, run it in
+    CI, and fail with a readable message naming the renamed layer.
+  </div>
+</div>
+
+<div class="finding sev-low">
+  <div class="head"><span class="idx">F6</span><h4>~1,900 lines of bash is a build system without a dependency graph</h4></div>
+  <p>
+    Ten shell scripts implement download, checksum, cache invalidation, Docker orchestration, artifact
+    installation, verification and benchmarking. The incrementality is real but each script reimplements
+    it: <code>bootstrap-photon.sh</code> compares an md5 marker, <code>prepare-style-assets.sh</code> compares a
+    multi-field hash marker, <code>build-poi-area-tiles.sh</code> compares file mtimes against four dependencies.
+    Three different mechanisms for one concept.
+  </p>
+  <div class="evidence">benchmark 206 · build-apk 248 · prepare-style-assets 222 · bootstrap-photon 193 · build-poi-area-tiles 117 · bootstrap-denmark 109 · sync-photon-volume 85 · load-env 88 · verify-android 68 · verify-backend 43 · bootstrap-common 52</div>
+  <div class="verdict">
+    <b>Fix:</b> declare the pipeline as a task graph (Taskfile / just / Make) with explicit
+    <code>sources:</code> and <code>generates:</code>, so incrementality is a property of the tool. Keep the bash — it becomes
+    the body of each task instead of the framework around it. Target: no script over ~80 lines.
+  </div>
+</div>
+
+<div class="finding sev-low">
+  <div class="head"><span class="idx">F7</span><h4>6.5 GB of generated artifacts live inside the working tree</h4></div>
+  <p>
+    <code>infra/.cache</code> is 4.8 GB and <code>infra/data</code> is 1.7 GB, both gitignored but both sitting in the repo
+    directory. The reverted world-basemap experiment left <code>world-lowres.mbtiles</code> and two
+    <code>.cache/world-*</code> directories behind that nothing references any more — the revert cleaned the source
+    tree but could not clean the artifact tree.
+  </p>
+  <div class="evidence">git show 48aa29c — revert of the world-reference basemap: −42,584 lines, one day after it merged<br>infra/data/tiles/world-lowres.mbtiles (1.2 MB) — orphaned, no config references it</div>
+  <div class="verdict">
+    <b>Fix:</b> put every generated artifact under a single root outside the repo (<code>~/.cache/dmap/</code> or a
+    sibling <code>dmap-artifacts/</code>) resolved from one variable. The repo becomes small enough to clone, clean and
+    reason about, and a revert cannot strand gigabytes.
+  </div>
+</div>
+
+<div class="finding sev-med">
+  <div class="head"><span class="idx">F8</span><h4>Nothing is enforced — no CI, no lint gate, no release path</h4></div>
+  <p>
+    There is no <code>.github/</code> directory. Unit tests exist and are good but run only when someone remembers.
+    Nothing checks formatting, Android Lint, or that the style patch still applies to upstream. On the
+    release side, <code>isMinifyEnabled = false</code>, there is no signing config, and <code>versionCode</code> is pinned at 1.
+  </p>
+  <div class="evidence">android/app/build.gradle.kts — release { isMinifyEnabled = false }, versionCode = 1, no signingConfig<br>no gradle/libs.versions.toml — every dependency version is a hardcoded string</div>
+  <div class="verdict">
+    <b>Fix:</b> CI from the first commit, gated on the cheap things only: unit tests, ktlint/detekt, Android
+    Lint, the style-patch schema check, and <code>node --test</code> for the proxies. None of that needs the 6.5 GB
+    dataset. Add a version catalog and a real release build config before the first APK you hand to anyone.
+  </div>
+</div>
+
+<div class="finding sev-med">
+  <div class="head"><span class="idx">F9</span><h4>Security defaults point the wrong way in two places</h4></div>
+  <p>
+    <code>android:usesCleartextTraffic="true"</code> is set application-wide, for all build types, so a release
+    build silently permits plaintext HTTP everywhere. Separately, the docs correctly recommend keeping the
+    Dataforsyningen token in a file outside the repo tree — but the default and the actually-present
+    configuration is <code>DMAP_ORTHOFOTO_TOKEN</code> in the repo-root <code>.env</code>. The safe path is documented; the
+    convenient path is the unsafe one.
+  </p>
+  <div class="evidence">AndroidManifest.xml — usesCleartextTraffic="true" on &lt;application&gt;<br>.env — DMAP_ORTHOFOTO_TOKEN set inline, despite README recommending DMAP_ORTHOFOTO_TOKEN_FILE</div>
+  <div class="verdict">
+    <b>Fix:</b> cleartext allowed only in the debug manifest, scoped by a network security config to private
+    address ranges; release is HTTPS-only. Make the token file the default and only path, and have the proxy
+    refuse to start with an inline token unless an explicit dev flag is set.
+  </div>
+</div>
+
+<div class="finding sev-low">
+  <div class="head"><span class="idx">F10</span><h4>Docs narrate milestones, so they age instead of accumulating</h4></div>
+  <p>
+    README, setup.md and architecture.md are all written as "what M2 includes / what M1 intentionally does
+    not". The content is high quality, but a reader in M4 has to mentally date every sentence, and
+    statements like "M1 intentionally downloads fonts" describe a decision that is simply true now.
+  </p>
+  <div class="verdict">
+    <b>Fix:</b> split into timeless reference (architecture, setup, contracts, tradeoffs — always describing
+    the current state) and a dated CHANGELOG/decision log that carries the milestone narrative and the ADRs.
+  </div>
+</div>
+
+<h2>Complexity hot spots</h2>
+
+<p>Where the lines actually are, and what each cluster is really doing:</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Cluster</th><th class="num">Main</th><th class="num">Test</th><th>What it is doing</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>POI tap resolution</td>
+      <td class="num">548</td><td class="num">790</td>
+      <td>Guessing feature identity from rendered geometry (F1)</td>
+    </tr>
+    <tr>
+      <td>Map screen state</td>
+      <td class="num">655</td><td class="num">731</td>
+      <td>One ViewModel owning camera, search, selection, permissions, overlays, backend health</td>
+    </tr>
+    <tr>
+      <td>Map UI + effects</td>
+      <td class="num">1,093</td><td class="num">0</td>
+      <td>MapScreen + MapScreenUi + MapRuntimeEffects + lifecycle; no UI test coverage</td>
+    </tr>
+    <tr>
+      <td>Search client</td>
+      <td class="num">311</td><td class="num">202</td>
+      <td>Photon HTTP + 185 lines of manual JSON traversal</td>
+    </tr>
+    <tr>
+      <td>Style pipeline</td>
+      <td class="num">476</td><td class="num">103</td>
+      <td>prepare-style-assets.sh + patch-mobile-style.py</td>
+    </tr>
+    <tr>
+      <td>Photon plumbing</td>
+      <td class="num">332</td><td class="num">0</td>
+      <td>bootstrap-photon + sync-photon-volume + container entrypoint (F2)</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p style="margin-top:14px">
+  Two clusters — POI tap resolution and Photon plumbing — together account for roughly a third of the
+  non-UI code in the project, and both exist to compensate for data that was not shaped right upstream.
+  That is the single most transferable observation in this review.
+</p>
+
+<h2>The ten learnings</h2>
+
+<ol>
+  <li><strong>Shape the data so the client never has to infer.</strong> Stable ids in the tiles would have deleted ~1,400 lines and a whole tile pipeline.</li>
+  <li><strong>Declare service interfaces before you have services.</strong> It cost 45 lines total and made Photon a drop-in.</li>
+  <li><strong>Environment selection belongs at runtime, not at compile time.</strong> Compile-time backends produced two scripts, 120 lines of Gradle, and a recurring support question.</li>
+  <li><strong>Generated artifacts live outside the repo.</strong> 6.5 GB inside the tree makes reverts, clones and cleanups all worse.</li>
+  <li><strong>Give the imperative SDK an explicit owner.</strong> Ten synchronising effects is the signal that a controller object is missing.</li>
+  <li><strong>Patch upstream, don't fork it — but keep the patch declarative</strong> and schema-checked in CI.</li>
+  <li><strong>Prefer boring, dependency-free gateways</strong> for third-party upstreams. The 0-dependency Node proxy has caused zero problems.</li>
+  <li><strong>Weigh runtime cost before adopting a backend.</strong> Photon's 885 MB / 3 GB RAM / JVM profile drove three separate workarounds; the contract around it is what saved the design.</li>
+  <li><strong>Enforce quality with CI from commit one</strong>, gated only on things that run without the dataset.</li>
+  <li><strong>Make the safe configuration the default configuration.</strong> Documented-safe plus convenient-unsafe means the unsafe path is what actually gets used.</li>
+</ol>
+
+<footer>
+  dmap2 stack review · generated 2026-07-27 from main @ 48820fe · companion document: <code>docs/rebuild-plan.html</code>
+</footer>
+
+</div>
+</body>
+</html>

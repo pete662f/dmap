@@ -1,228 +1,114 @@
-# dmap2
+# dmap
 
-Milestone 2 for a Denmark-first native Android map app backed by a self-hosted OpenMapTiles-compatible stack plus self-hosted place search.
+A Denmark-first map and navigation app for **Android and iOS**, built on a
+self-hosted stack: own vector tiles, own place index, own routing.
 
-This repo contains:
+Multimodal routing (car, bike, foot) with Rejseplanen for public transport · a
+POI layer that beats OSM alone · speed cameras and hazards · and a location
+engine that actually tracks a moving car without hopping.
 
-- [`android`](./android) - native Kotlin Android app using MapLibre Native Android
-- [`infra`](./infra) - local Docker-based tile backend, style preparation, and bootstrap scripts
-- [`docs`](./docs) - setup, architecture, and roadmap documentation
+## Two documents to read first
 
-## What M2 includes
+**[`docs/dmap3-master-plan.html`](./docs/dmap3-master-plan.html) is the spec** —
+every component researched, every choice justified, every deadline named. Read it
+before making architectural decisions.
 
-- Self-hosted Denmark vector tiles built locally with Planetiler's OpenMapTiles profile
-- Self-hosted OSM Liberty-based style, sprites, and glyphs with a deterministic mobile style patch
-- Self-hosted Photon search and reverse geocoding backend for Denmark
-- Local Ortofoto proxy for GeoDanmark spring orthophotos from Dataforsyningen
-- Native Android app with a polished map-first screen
-- Tasteful POI presentation from the vector tile style only
-- Satellite/Ortofoto map mode with vector labels and POIs kept above imagery
-- Runtime location permission flow without first-launch interruption
-- Styled blue dot / puck and a dedicated locate-me control
-- Denmark-first camera defaults, zoom bounds, and smoother recentering
-- Debounced typed search with readable result rows
-- Selected-place marker plus compact place card
-- Rendered POI tap selection plus exact-coordinate long-press pins
-- Ambient cache configuration from day one
-- Clean extension points for future search, place detail, and routing overlays
+**[`docs/dmap2-lessons.md`](./docs/dmap2-lessons.md) is the accumulated
+experience.** This is a ground-up rebuild: an earlier version of this app was
+built, learned from, and **deleted**. No code is reused. That is deliberate —
+reuse smuggles unexamined decisions forward, and the point of a second attempt is
+that each decision gets made properly with the benefit of having made it once.
+Read the relevant section of the lessons before building each piece; every item
+in it cost real time to discover. The old code is readable at the `dmap2-final`
+tag as a reference, never as a source to copy from.
 
-## What M2 intentionally does not include
+## Layout
 
-- Routing UI or Valhalla integration
-- Offline region downloads
-- Favorites, accounts, navigation, or turn-by-turn guidance
+```
+shared/       Kotlin Multiplatform core — domain, use cases, data, location math
+androidApp/   Jetpack Compose shell
+iosApp/       SwiftUI shell (XcodeGen spec; the .xcodeproj is generated)
+docs/         the plan, and what the previous attempt taught
+infra/        NOT YET BUILT — gateways and data pipelines, rebuilt in P1
+```
+
+The rule that shapes all of it: **share everything that is a rule, write
+natively everything that is a surface.** Business logic, domain models, network
+contracts, persistence and the L1–L5 location pipeline live in `shared/`.
+Anything touching a screen, a sensor, a permission dialog or an OS lifecycle is
+written twice, on purpose.
+
+## Prerequisites
+
+```bash
+brew install mise go-task xcodegen duckdb
+mise install                 # Java, Node, Python per .mise.toml
+```
+
+Plus Xcode (iOS), Android Studio with an **arm64** emulator image, and a Docker
+runtime. On a 16 GB machine, OrbStack is noticeably kinder than Docker Desktop
+because it returns unused memory to macOS.
 
 ## Quick start
 
-### 1. Bootstrap Denmark map data, self-hosted style assets, and Photon search data
-
 ```bash
-./infra/scripts/bootstrap-denmark.sh
+task test          # shared logic on the JVM — the fast loop
+task test:ios      # the same fixtures on Kotlin/Native — the parity gate
+task android       # install and launch the Android app
+task ios           # build the XCFramework, generate the project, open Xcode
+task --list        # everything else
 ```
 
-This is the heaviest step on the first run. It runs the pinned multi-arch Planetiler container, generates a Denmark `.mbtiles`, prepares fully self-hosted style assets under `infra/tileserver/`, and downloads the pinned Photon jar plus the official GraphHopper Denmark `1.x` Photon json dump for local import under `infra/data/search/photon/`.
+Backend URLs are **runtime settings** in each app, not build config — point each
+app at a host from its own settings screen. This is why a physical device no
+longer needs a rebuild to change hosts.
 
-Bootstrap is incremental after that first run: repeated executions reuse existing generated map, style, font, and Photon assets when the pinned inputs have not changed.
+The backend itself does not exist yet; `infra/` is rebuilt in P1. The
+`backend:*` tasks are declared with their intended interface and currently tell
+you so.
 
-Glyphs are prefetched into the repo during bootstrap so the app does not depend on public font endpoints at runtime. The style pipeline also applies a deterministic mobile tuning pass so the generated style is ready for the Android presentation.
+## The development loops
 
-Photon bootstrap now imports the official Denmark `1.x` json dump into a local database instead of unpacking the prebuilt tar database directly. This is slower the first time but has been more reliable with Photon `1.0.1`.
+Most work should never start a simulator. The setup is built around three loops,
+because on 16 GB the whole stack does not fit in memory at once:
 
-Photon runtime now uses a Docker-managed `dmap2_photon_data` volume for the live index. The imported host-side artifacts under `infra/data/search/photon/` remain the source dataset, and `./infra/scripts/up-backend.sh` syncs that dataset into the runtime volume automatically before starting Compose.
+1. **Seconds, no device.** Shared logic: domain, use cases, and the entire
+   location pipeline. `task test`. Aim to spend most of your hours here.
+2. **A minute, one platform.** UI work — emulator *or* simulator, never both
+   except at deliberate parity checkpoints.
+3. **Physical devices.** Location, navigation, background lifecycle. Rare,
+   because the trace replay harness exists so navigation is tuned from fixtures
+   rather than from the motorway.
 
-### 2. Start the local backends
+## Four rules
 
-```bash
-./infra/scripts/up-backend.sh
-```
+1. **Every backend is an interface with an `Unavailable` implementation**,
+   written before the backend exists, declared in `commonMain` so both shells
+   get the same seam.
+2. **Backend URLs are a runtime setting**, never a compile-time `BuildConfig`
+   chain. dmap2 spent ~120 lines of Gradle and a recurring support question on
+   this, and none of it ports to Xcode.
+3. **The client never infers what the data should state.** Tap → read
+   `place_id` → look it up. No geometry-based guessing, ever.
+4. **A feature is not done until it is done on both platforms.** Not "Android
+   now, iOS in the catch-up sprint" — the catch-up sprint never happens, and a
+   half-ported app is how a shared core rots into an Android core with a Swift
+   wrapper. The iOS CI lane is a required check for exactly this reason.
 
-The Photon container now starts with:
+## Current state
 
-- `PHOTON_JAVA_XMS=1g`
-- `PHOTON_JAVA_XMX=2g`
-- `PHOTON_JAVA_EXTRA_FLAGS=--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`
+**P0b — dual-platform foundations.** Both shells launch to a runtime backend
+settings screen from the shared core. The frozen `PlaceId` model, the service
+contracts with `Unavailable` implementations, and L1 (gate) + L2 (Kalman filter)
+of the location pipeline are implemented and tested on both the JVM and
+Kotlin/Native targets.
 
-TileServer is intentionally unchanged in this pass because its local latency was already low enough that Photon was the meaningful backend bottleneck.
+Next: **P1** — the tile pipeline and style pipeline rebuilt, `MapController`
+implemented natively on both platforms, and GPS traces recorded on real Danish
+roads so the location pipeline can be tuned against fixtures rather than by feel.
 
-The local services are served on:
+## Licence
 
-- Map tiles and style: [http://localhost:8080](http://localhost:8080)
-- Search and reverse geocoding: [http://localhost:8081](http://localhost:8081)
-- Ortofoto imagery proxy: [http://localhost:8083](http://localhost:8083)
-
-Backend ports bind to `127.0.0.1` by default. For physical-device testing, opt in to LAN exposure:
-
-```dotenv
-DMAP_BIND_HOST=0.0.0.0
-```
-
-Ortofoto tile forwarding requires a Dataforsyningen token. Prefer a token file outside the repo tree:
-
-```dotenv
-DMAP_ORTHOFOTO_TOKEN_FILE=/Users/you/.config/dmap2/ortofoto-token
-```
-
-The legacy environment variable is still supported:
-
-```dotenv
-DMAP_ORTHOFOTO_TOKEN=your-dataforsyningen-token
-```
-
-Optional validation:
-
-```bash
-./infra/scripts/verify-backend.sh
-```
-
-The verification script checks `localhost` by default. `DMAP_HOST_IP` is only used to compile physical-device Android backend URLs, so it does not make local verification target your LAN IP unless you pass explicit URLs.
-
-### 3. Run the Android app
-
-Emulator defaults are already configured:
-
-- `http://10.0.2.2:8080` for the map backend
-- `http://10.0.2.2:8081` for the search backend
-
-For a physical device, set your Mac's LAN IP in the repo root `.env`:
-
-```dotenv
-DMAP_HOST_IP=192.168.0.195
-DMAP_BIND_HOST=0.0.0.0
-```
-
-Then rebuild and reinstall the app so the compiled Android `BuildConfig` picks up the new host.
-
-If you prefer Android-only overrides, you can still create `android/local.properties` and point it at your machine’s LAN IP:
-
-```properties
-sdk.dir=/Users/your-user/Library/Android/sdk
-dmap.backendUrl=http://192.168.1.10:8080
-dmap.searchBackendUrl=http://192.168.1.10:8081
-dmap.imageryBackendUrl=http://192.168.1.10:8083
-```
-
-Then run:
-
-```bash
-./infra/scripts/build-apk.sh
-```
-
-The build now prints the compiled backend URLs after Gradle finishes. You can also verify them explicitly with:
-
-```bash
-./infra/scripts/verify-android-build-config.sh
-```
-
-Physical-device checklist:
-
-1. Set `DMAP_HOST_IP` in the repo root `.env`
-2. Set `DMAP_BIND_HOST=0.0.0.0` or your Mac LAN IP so the phone can reach the backend ports
-3. Start the backends with `./infra/scripts/up-backend.sh`
-4. Rebuild and reinstall the Android app
-5. Ensure the phone and Mac are on the same Wi-Fi or LAN
-6. If it still fails, open these URLs on the phone:
-   - `http://<mac-ip>:8080/styles/osm-liberty/style.json`
-   - `http://<mac-ip>:8081/status`
-
-If the app UI still shows `Backend: http://10.0.2.2:8080`, the installed APK was built with emulator defaults and must be rebuilt after fixing the config.
-
-Or open [`android`](./android) in Android Studio and run the `app` configuration.
-
-A template lives at [`android/local.properties.example`](./android/local.properties.example).
-
-The repo root `.env` is the shared default source for Android builds and backend scripts. The Android build reads:
-
-- `DMAP_HOST_IP` and derives `:8080`, `:8081`, and `:8083`
-- `DMAP_IMAGERY_BACKEND_URL`, or `DMAP_HOST_IP` deriving `:8083`
-- or explicit `DMAP_BACKEND_URL`, `DMAP_SEARCH_BACKEND_URL`, and `DMAP_IMAGERY_BACKEND_URL`
-
-Build precedence is:
-
-- explicit Gradle/script overrides
-- `android/local.properties`
-- repo `.env`
-- emulator defaults
-
-The backend helper scripts use the same repo `.env` file:
-
-- `./infra/scripts/build-apk.sh`
-- `./infra/scripts/verify-backend.sh`
-- `./infra/scripts/up-backend.sh`
-
-## Commands
-
-- Bootstrap data and style assets: `./infra/scripts/bootstrap-denmark.sh`
-- Refresh upstream source checks: `REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
-- Rebuild generated local outputs from cached sources: `FORCE_REBUILD=1 ./infra/scripts/bootstrap-denmark.sh`
-- Full rebuild with refreshed upstream sources: `FORCE_REBUILD=1 REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
-- Legacy no-refresh mode, still accepted but no longer needed for normal repeats: `NO_REFRESH=1 ./infra/scripts/bootstrap-denmark.sh`
-- Tune Planetiler heap size: `PLANETILER_JAVA_XMX=8g ./infra/scripts/bootstrap-denmark.sh`
-- Tune Planetiler threads: `PLANETILER_THREADS=6 ./infra/scripts/bootstrap-denmark.sh`
-- Install a Linux-built MBTiles artifact locally: `./infra/scripts/install-mbtiles-artifact.sh /path/to/denmark.mbtiles`
-- Start backends: `./infra/scripts/up-backend.sh`
-- Verify map + search backends: `./infra/scripts/verify-backend.sh`
-- Verify Ortofoto proxy tests: `node --test infra/services/ortofoto-proxy/server.test.js`
-- Benchmark map + search backends: `./infra/scripts/benchmark-backend.sh`
-- Build Android debug APK: `./infra/scripts/build-apk.sh`
-- Build Android release APK: `./infra/scripts/build-apk.sh --release`
-- Run Android unit tests directly: `cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew testDebugUnitTest`
-
-## M2 place experience
-
-- The app opens directly into a polished Denmark map instead of immediately jumping to the user
-- POIs remain fully style-driven from the vector tile stack
-- Location permission is requested from the compact prompt or the locate control, not by interrupting first launch
-- The blue dot uses explicit MapLibre location component styling
-- Recentering animates to the user only when the user asks for it
-- Search requests are debounced and biased to Denmark
-- Search results are normalized into readable titles and concise subtitles
-- Selecting a search result or tapping a visible rendered POI places a single selected-place marker and opens a compact place card immediately
-- Long-press drops a pin at the exact pressed coordinate and only uses a reverse-geocoded label when the returned place is very close to that coordinate
-- Empty taps do not clear the current selection and do not snap to nearby POIs
-- The layer button switches between the vector map and GeoDanmark Ortofoto imagery while keeping labels, POIs, pins, and the location puck above the imagery
-
-## Backend endpoints
-
-- Style JSON: [http://localhost:8080/styles/osm-liberty/style.json](http://localhost:8080/styles/osm-liberty/style.json)
-- TileJSON: [http://localhost:8080/data/openmaptiles.json](http://localhost:8080/data/openmaptiles.json)
-- Photon status: [http://localhost:8081/status](http://localhost:8081/status)
-- Photon search: [http://localhost:8081/api?q=aarhus&limit=3](http://localhost:8081/api?q=aarhus&limit=3)
-- Photon reverse: [http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1](http://localhost:8081/reverse?lon=12.5683&lat=55.6761&limit=1)
-- Ortofoto proxy health: [http://localhost:8083/healthz](http://localhost:8083/healthz)
-- Ortofoto TileJSON: [http://localhost:8083/ortofoto/tilejson.json](http://localhost:8083/ortofoto/tilejson.json)
-
-## Apple Silicon
-
-Apple Silicon is supported for both map and search in M2.
-
-- Tile generation uses `ghcr.io/onthegomap/planetiler:0.10.2`, which publishes `linux/arm64`
-- Tile serving uses `maptiler/tileserver-gl-light:v5.5.0`, which also publishes `linux/arm64`
-- Photon runs in a small Java 21 container and uses the official GraphHopper Denmark `1.x` dump
-- Photon keeps its imported source data on the host but serves the live OpenSearch index from a Docker-managed volume for better Docker Desktop performance
-- The Ortofoto proxy runs in a small Node 22 Alpine container and keeps Dataforsyningen credentials out of the APK
-
-## Docs
-
-- Setup: [`docs/setup.md`](./docs/setup.md)
-- Architecture: [`docs/architecture.md`](./docs/architecture.md)
-- Roadmap: [`docs/roadmap.md`](./docs/roadmap.md)
+Not yet chosen — see the licence-hygiene section of the plan. Note that the app
+source and the *derived data* are separate questions: ODbL share-alike attaches
+to a redistributed database, not to client code.

@@ -1,0 +1,121 @@
+version: '3'
+
+# go-task. Install: brew install go-task
+#
+# The organising constraint on this machine is 16 GB of RAM against a stack that
+# wants 25-35 GB if everything runs at once (Docker gateways, two IDEs, two
+# simulators, Gradle and Kotlin daemons, plus 8 GB for a Planetiler build).
+# So the tasks are grouped by which loop you are in, and the heavy ones say
+# plainly that they want the machine to themselves.
+
+vars:
+  GRADLE: ./gradlew
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  # ---------------------------------------------------------------- loop 1
+  # Seconds. No emulator, no simulator, no Docker. Most work lives here.
+
+  test:
+    desc: "Loop 1 — shared logic on the JVM (the fast loop)"
+    cmds:
+      - '{{.GRADLE}} :shared:jvmTest'
+
+  test:watch:
+    desc: "Loop 1 — rerun shared tests on change"
+    cmds:
+      - '{{.GRADLE}} :shared:jvmTest --continuous'
+
+  test:ios:
+    desc: "Loop 1 — same fixtures on Kotlin/Native (the parity gate)"
+    cmds:
+      - '{{.GRADLE}} :shared:iosSimulatorArm64Test'
+
+  test:all:
+    desc: "Loop 1 — both targets, i.e. what CI will say"
+    cmds:
+      - task: test
+      - task: test:ios
+
+  # ---------------------------------------------------------------- loop 2
+  # A minute. One platform at a time — never both simulators on 16 GB.
+
+  android:
+    desc: "Loop 2 — install and run the Android app"
+    cmds:
+      - '{{.GRADLE}} :androidApp:installDebug'
+      - adb shell am start -n com.dmap/com.dmap.android.MainActivity
+
+  ios:framework:
+    desc: "Build the XCFramework that iosApp consumes"
+    cmds:
+      - '{{.GRADLE}} :shared:assembleDmapSharedXCFramework'
+
+  ios:project:
+    desc: "Regenerate iosApp.xcodeproj from project.yml"
+    deps: [ios:framework]
+    dir: iosApp
+    cmds:
+      - xcodegen generate
+
+  ios:
+    desc: "Loop 2 — open the iOS app in Xcode"
+    deps: [ios:project]
+    cmds:
+      - open iosApp/iosApp.xcodeproj
+
+  # ---------------------------------------------------------------- backend
+  #
+  # NOT YET BUILT. dmap2's backend was deleted along with the rest of its code —
+  # dmap3 reuses knowledge, not code. These tasks are the interface the rebuilt
+  # infra/ should expose, kept here so the shape is decided before the scripts
+  # are written. Read docs/dmap2-lessons.md first; the operational traps
+  # (index-on-bind-mount, glyph builds, arm64 images, heap tuning) are all
+  # documented there and all cost real time to find the first time.
+
+  backend:up:
+    desc: "[P1] Start the core gateways (tiles + places)"
+    cmds:
+      - task: backend:notbuilt
+
+  backend:verify:
+    desc: "[P1] Health-check the running gateways"
+    cmds:
+      - task: backend:notbuilt
+
+  backend:down:
+    desc: "[P1] Stop the gateways and give the RAM back"
+    cmds:
+      - task: backend:notbuilt
+
+  data:bootstrap:
+    desc: "[P1] HEAVY — build Denmark tiles and the place index. Close your IDEs."
+    cmds:
+      - task: backend:notbuilt
+
+  backend:notbuilt:
+    internal: true
+    cmds:
+      - |
+        echo "Not built yet — infra/ is rebuilt in P1."
+        echo "Read docs/dmap2-lessons.md before you start it."
+        echo "dmap2's built artifacts are parked at ../dmap2-artifacts/ (schema differs; expect to rebuild)."
+        exit 1
+
+  # ---------------------------------------------------------------- checks
+
+  ci:
+    desc: "Everything CI runs, locally"
+    cmds:
+      - task: test:all
+      - '{{.GRADLE}} :androidApp:testDebugUnitTest :androidApp:assembleDebug'
+
+  clean:
+    desc: "Drop Gradle build output (not the data artifacts)"
+    cmds:
+      - '{{.GRADLE}} clean'

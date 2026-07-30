@@ -1,0 +1,76 @@
+name: ios
+
+# This lane must be a REQUIRED status check on main.
+#
+# It is the tripwire for the highest-severity risk in the plan: the shared core
+# quietly rotting into an Android core with a Swift wrapper. Rule 4 — a feature
+# is not done until both platforms pass the same contract and trace fixtures —
+# is only real if CI enforces it.
+#
+# macOS standard runners are free and unmetered on public repositories, so
+# there is no cost argument for making this advisory.
+
+on:
+  pull_request:
+    paths:
+      - 'shared/**'
+      - 'iosApp/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/ios.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The parity gate: the same trace fixtures, on Kotlin/Native. A trace
+      # recorded on an Android phone must produce identical pipeline output
+      # here. If this fails while the JVM lane passes, the shared core has
+      # leaked a platform assumption.
+      - name: shared tests (iOS simulator target)
+        run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace
+
+      - name: assemble XCFramework
+        run: ./gradlew :shared:assembleDmapSharedXCFramework --stacktrace
+
+      - name: generate Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: build iosApp
+        run: |
+          xcodebuild build \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify || xcodebuild build \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-reports
+          path: shared/build/reports/tests/
+          retention-days: 7

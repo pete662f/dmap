@@ -1,0 +1,48 @@
+name: Bug
+description: Something behaves wrongly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what should happen instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: >-
+        "Both" usually means the bug is in shared/, which is good news — one fix.
+        One-platform bugs are the shell's problem.
+      options:
+        - Android only
+        - iOS only
+        - Both
+        - Backend / infra
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS version
+      placeholder: "Pixel 8 / Android 15 · iPhone 15 Pro / iOS 18.2"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: input
+    id: trace
+    attributes:
+      label: Trace fixture
+      description: >-
+        For anything location- or navigation-shaped: is there a recorded trace
+        that reproduces it? A bug with a fixture is a test; a bug without one is
+        a story about the motorway.
+      placeholder: "shared/src/commonTest/resources/traces/…json"

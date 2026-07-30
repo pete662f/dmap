@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Master plan
+    url: https://github.com/pete662f/dmap/blob/main/docs/dmap3-master-plan.html
+    about: Phases, decisions, risks and exit criteria. Read before filing scope-shaped issues.

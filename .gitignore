@@ -4,28 +4,37 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
 .env
 .env.*
 !.env.example
 
-/android/.gradle/
-/android/.idea/
-/android/.kotlin/
-/android/build/
-/android/local.properties
-/android/app/build/
-/android/app/.idea/
-/android/app/local.properties
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+local.properties
 
+# Xcode — project.yml is the source of truth, the pbxproj is generated
+iosApp/*.xcodeproj/
+iosApp/*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.swiftpm/
+
+# Generated data artifacts. Large, reproducible, and per the plan they live
+# OUTSIDE the source tree entirely — dmap2's grew to ~6.5 GB inside it.
+# dmap2's are parked at ../dmap2-artifacts/.
+#
+# infra/ is rebuilt in P1 (see docs/dmap2-lessons.md). These patterns are here
+# so the first heavy build cannot accidentally commit a tileset.
 /infra/.cache/
-/infra/data/osm/*
-!/infra/data/osm/.gitkeep
-/infra/data/tiles/*
-!/infra/data/tiles/.gitkeep
-/infra/data/search/photon/photon.jar
-/infra/data/search/photon/photon_data/
+/infra/data/
 /infra/tileserver/fonts/*
 !/infra/tileserver/fonts/.gitkeep
-/infra/tileserver/styles/osm-liberty/*
-!/infra/tileserver/styles/osm-liberty/.gitkeep
-!/infra/tileserver/styles/osm-liberty/README.md
+/infra/tileserver/styles/*
+!/infra/tileserver/styles/.gitkeep
+*.mbtiles
+*.pmtiles
+*.osm.pbf

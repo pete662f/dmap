@@ -1,0 +1,38 @@
+version: 2
+
+# Weekly, grouped, and capped. A solo project does not want seven separate
+# dependency PRs a week competing with feature work — but it does want to know
+# when Kotlin, AGP or Ferrostar move, because those are the pins the plan warns
+# about.
+
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      kotlin-and-agp:
+        patterns:
+          - 'org.jetbrains.kotlin*'
+          - 'com.android.tools.build*'
+          - 'androidx.compose*'
+      everything-else:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'org.jetbrains.kotlin*'
+          - 'com.android.tools.build*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /infra/services
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2

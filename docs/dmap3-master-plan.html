@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dmap3 — Master Plan: the best Danish map app</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --surface-2: #f0efec;
+    --border:    #dedcd6;
+    --border-strong: #c6c3bb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #757370;
+    --accent:  #2a78d6;
+    --accent-soft: #eaf1fc;
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --serious:  #ec835a;
+    --critical: #d03b3b;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --border:    #343431;
+      --border-strong: #4a4a46;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #97968d;
+      --accent: #3987e5;
+      --accent-soft: #1d2c3f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+         font-family: var(--sans); font-size: 16px; line-height: 1.62; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 44px 24px 110px; }
+
+  header.masthead { border-bottom: 1px solid var(--border); padding-bottom: 28px; margin-bottom: 34px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+             color: var(--text-muted); font-weight: 600; margin: 0 0 10px; }
+  h1 { font-size: 40px; line-height: 1.12; margin: 0 0 12px; letter-spacing: -.022em; font-weight: 650; }
+  .lede { font-size: 18px; color: var(--text-secondary); margin: 0; max-width: 70ch; }
+  .meta { margin-top: 18px; font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+
+  h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
+       color: var(--text-muted); margin: 60px 0 18px; padding-bottom: 8px;
+       border-bottom: 1px solid var(--border); scroll-margin-top: 16px; }
+  h3 { font-size: 21px; margin: 34px 0 10px; font-weight: 620; letter-spacing: -.012em; }
+  h4 { font-size: 15.5px; margin: 22px 0 6px; font-weight: 645; }
+  p  { margin: 0 0 14px; color: var(--text-secondary); }
+  strong { color: var(--text-primary); font-weight: 620; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono); font-size: .875em; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+    color: var(--text-primary); white-space: nowrap;
+  }
+  pre { font-family: var(--mono); font-size: 12.8px; line-height: 1.58;
+        background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+        padding: 18px 20px; overflow-x: auto; color: var(--text-secondary); margin: 0 0 18px; }
+  pre b { color: var(--text-primary); font-weight: 620; }
+  pre .c { color: var(--text-muted); }
+  pre .a { color: var(--accent); }
+
+  /* nav */
+  nav.toc { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px 22px; margin: 0 0 8px; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  @media (max-width: 720px) { nav.toc ol { columns: 1; } h1 { font-size: 31px; } }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.2px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted);
+       font-weight: 660; background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  td .sub { display: block; font-size: 12.4px; color: var(--text-muted); margin-top: 2px; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+  /* chips */
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 640;
+          padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+          border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-primary); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .chip.ok   .dot { background: var(--good); }
+  .chip.warn .dot { background: var(--warning); }
+  .chip.hot  .dot { background: var(--serious); }
+  .chip.stop .dot { background: var(--critical); }
+  .chip.info .dot { background: var(--accent); }
+
+  /* KPI */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 12px; margin: 0 0 8px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin: 0 0 6px; line-height: 1.3; }
+  .tile .value { font-size: 27px; font-weight: 640; letter-spacing: -.02em; line-height: 1.05; }
+  .tile .sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; font-family: var(--mono); }
+
+  /* cards */
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+          padding: 18px 20px; margin: 0 0 14px; }
+  .card.lead-accent   { border-left: 3px solid var(--accent); }
+  .card.lead-good     { border-left: 3px solid var(--good); }
+  .card.lead-warn     { border-left: 3px solid var(--warning); }
+  .card.lead-hot      { border-left: 3px solid var(--serious); }
+  .card.lead-critical { border-left: 3px solid var(--critical); }
+  .card > :last-child { margin-bottom: 0; }
+  .card .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card .head h4 { margin: 0; }
+  .card .idx { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+
+  .decide { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border);
+            font-size: 14.5px; color: var(--text-primary); }
+  .decide b { color: var(--accent); font-weight: 660; }
+
+  .callout { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 10px;
+             padding: 16px 20px; margin: 20px 0; }
+  .callout > :last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--text-secondary); }
+  li { margin-bottom: 5px; }
+  li::marker { color: var(--text-muted); }
+  ul.tight li, ol.tight li { margin-bottom: 2px; }
+
+  .cols  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 820px) { .cols, .cols3 { grid-template-columns: 1fr; } }
+
+  .phase .tag { font-family: var(--mono); font-size: 12px; font-weight: 660; color: var(--accent);
+                background: var(--accent-soft); border-radius: 5px; padding: 2px 7px; }
+  .exit { font-size: 14px; background: var(--surface-2); border-radius: 8px; padding: 10px 14px;
+          border: 1px solid var(--border); color: var(--text-primary); margin-top: 10px; }
+  .exit b { color: var(--accent); font-weight: 660; }
+
+  .conf { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+  footer { margin-top: 76px; padding-top: 20px; border-top: 1px solid var(--border);
+           font-size: 13px; color: var(--text-muted); }
+  footer ul { font-size: 12.6px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Research-backed master plan</p>
+  <h1>dmap3 — the best Danish map app</h1>
+  <p class="lede">
+    Multimodal routing (car, bike, foot) with Rejseplanen for public transport · a POI layer that beats
+    OSM alone · speed cameras and hazards · and a location engine that actually tracks a moving car
+    without hopping. <strong>Android and iOS</strong>, from a shared Kotlin Multiplatform core.
+    Every component researched, every choice justified, every deadline named.
+  </p>
+  <p class="meta">Drafted 2026-07-27 · rev. 2 same day: Overture conflation corrected, identity/privacy/transit-degradation added · rev. 3 2026-07-28: iOS committed — KMP shared core, phases re-sequenced, Ferrostar iOS gate added, schedule re-estimated · <b>rev. 4 2026-07-30: ground-up rebuild — no dmap2 code reused, port instructions removed, knowledge extracted to docs/dmap2-lessons.md</b> · supersedes docs/rebuild-plan.html · builds on docs/stack-review.html</p>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#deadlines">Deadlines and hard constraints</a></li>
+    <li><a href="#decisions">The decision table</a></li>
+    <li><a href="#data">Data sources: what, licence, cost</a></li>
+    <li><a href="#places">The place model — one ID to rule them</a></li>
+    <li><a href="#poi">POI pipeline: OSM + Overture + CVR + yours</a></li>
+    <li><a href="#hazards">Speed cameras and hazards</a></li>
+    <li><a href="#routing">Routing: Valhalla for car/bike/foot</a></li>
+    <li><a href="#transit">Public transport via Rejseplanen</a></li>
+    <li><a href="#location">Location precision — the jerky-puck fix</a></li>
+    <li><a href="#navui">Navigation UI and camera</a></li>
+    <li><a href="#platform">Platform strategy — one core, two shells</a></li>
+    <li><a href="#client">Client architecture</a></li>
+    <li><a href="#backend">Backend topology</a></li>
+    <li><a href="#phases">Build order</a></li>
+    <li><a href="#risks">Risks and what to verify yourself</a></li>
+  </ol>
+</nav>
+
+<h2 id="deadlines">Deadlines and hard constraints</h2>
+
+<div class="card lead-critical">
+  <div class="head"><span class="chip stop"><span class="dot"></span>Deadline</span><h4>DAWA shuts down 17 August 2026 — three weeks from today</h4></div>
+  <p>
+    Danmarks Adressers Web API (<code>api.dataforsyningen.dk</code>) closes <strong>17 August 2026</strong>,
+    postponed once already from 1 July 2026. It is being replaced by <strong>Datafordeleren</strong>, where the
+    address data (DAR) is reached by <strong>file download or GraphQL</strong>, behind API keys or OAuth.
+    BBR data on DAWA already stopped updating in December 2023.
+  </p>
+  <p class="decide">
+    <b>Consequence for dmap3:</b> do not write a single line against DAWA. Go straight to Datafordeleren DAR
+    bulk file download, imported into our own index. This is actually the better architecture anyway — we want
+    a local address index, not a remote API call on every keystroke. Register a Datafordeleren user
+    <em>this week</em> so the credential process is not on the critical path.
+  </p>
+</div>
+
+<div class="card lead-accent">
+  <div class="head"><span class="chip info"><span class="dot"></span>Scope</span><h4>Android and iOS are both product requirements — decided 2026-07-28</h4></div>
+  <p>
+    rev. 1 and rev. 2 of this plan were Android-only, and the superseded <code>rebuild-plan.html</code> listed
+    "iOS or a shared KMP core in the first two milestones" as an explicit non-goal. That is no longer the case:
+    <strong>the app ships on both platforms</strong>. This is a scope decision, not a technical one, and it
+    changes the plan in three places — the architecture gets a shared core (see Platform strategy), every phase
+    exit criterion now reads "on both platforms", and the schedule grows.
+  </p>
+  <p class="decide">
+    <b>Consequence:</b> doing this from P0 is much cheaper than retrofitting it after P3, so the foundations
+    phase splits in two. But <strong>Apple enrolment, signing and macOS CI do not go in week 1</strong> — week 1
+    belongs to Datafordeleren, which has an immovable external deadline. Apple has lead time; it does not have
+    a cliff.
+  </p>
+</div>
+
+<div class="card lead-hot">
+  <div class="head"><span class="chip hot"><span class="dot"></span>Method</span><h4>No dmap2 code is reused — only what dmap2 taught</h4></div>
+  <p>
+    dmap3 is a rebuild from the ground up, not a migration. The dmap2 Android app and its backend have been
+    deleted from the repository; nothing is ported, nothing is copied, and no file is carried across. The
+    reason is not that the old code was bad — much of it worked — but that <strong>reuse smuggles unexamined
+    decisions forward</strong>, and the whole point of a second attempt is that each decision gets made
+    deliberately with the benefit of having made it once already.
+  </p>
+  <p class="decide">
+    <b>Where the knowledge lives:</b> <code>docs/dmap2-lessons.md</code> — the three expensive mistakes, what
+    worked and should be repeated, and the hard-won operational details (glyph builds, index storage, proxy
+    behaviour, tuning knobs) that were embodied in the deleted scripts. <strong>Read the relevant section
+    before building each corresponding piece.</strong> The old code remains readable at the
+    <code>dmap2-final</code> tag as a <em>reference</em>, never as a source to copy from.
+  </p>
+</div>
+
+<div class="cols">
+  <div class="card lead-warn">
+    <h4>Rejseplanen has a real cost cliff</h4>
+    <p>
+      Free tier is <strong>50,000 API requests per month, non-commercial only</strong>. Above that, or if you sell
+      data or sell a service using the data, it is commercial: <strong>€5,000/year</strong> for 100k requests/day,
+      <strong>€8,500/year</strong> for 200k/day. Data is licensed <strong>CC BY 4.0</strong> — attribution required.
+    </p>
+    <p class="decide">
+      <b>Design consequence:</b> architect to stay under 50k/month by default. Use the free
+      <strong>GTFS static feed</strong> locally for everything that does not need live data (stop search, stop
+      rendering, line geometry, timetable browsing) and spend API calls only on live journey planning
+      and live departures. That is a 10–50× reduction in call volume versus naive use. Note the cliff
+      triggers on volume alone — more than 50k/month is itself commercial use, revenue or not, so success
+      alone triggers it. The over-budget behaviour is a designed mode, not an outage (see Public transport).
+    </p>
+  </div>
+  <div class="card lead-warn">
+    <h4>MapLibre Compose is not production-ready yet</h4>
+    <p>
+      The official first-party <code>maplibre-compose</code> supports camera, layers, expressions, GeoJSON
+      sources, feature querying, offline regions and Material 3 controls — but its own documentation states
+      the feature set is incomplete, there may be bugs, and <strong>API stability is not guaranteed</strong>.
+      Ferrostar moved its Android UI onto it in 0.50/0.51.
+    </p>
+    <p class="decide">
+      <b>Design consequence:</b> put every map interaction behind our own <code>MapController</code> interface,
+      declared in the shared core and implemented natively on each platform. Back it with MapLibre Native +
+      <code>AndroidView</code> on Android and MapLibre Native iOS via SPM on iOS (both safe, proven), and let
+      the navigation screen use Ferrostar's own UI layer. If MapLibre Compose stabilises we swap the Android
+      implementation without touching feature code — and iOS never depended on it in the first place.
+    </p>
+  </div>
+</div>
+
+<div class="cols">
+  <div class="card lead-hot">
+    <div class="head"><span class="chip hot"><span class="dot"></span>New in rev. 3</span><h4>Ferrostar's iOS side is weaker than its Android side</h4></div>
+    <p>
+      Ferrostar (0.53.0 at time of writing) describes itself as a <strong>solid alpha</strong>: the iOS UI is
+      "usable, with some rough edges", the project is explicitly <strong>not yet ready for production</strong>,
+      and there are no API stability guarantees. The Rust core is the mature part; the SwiftUI layer is the
+      thin part. rev. 2 already said to treat the navigation state machine as "a dependency we could replace
+      rather than a foundation we cannot" — with iOS committed, that stops being a hedge and becomes a
+      requirement.
+    </p>
+    <p class="decide">
+      <b>Design consequence:</b> the dual-platform navigation trial is promoted from a spike to a
+      <strong>gate (P2.5)</strong> that runs before any navigation UI is written. If Ferrostar's SwiftUI layer
+      does not hold up on a real Danish route, the fallbacks are: vendor a pinned fork and patch it, drive the
+      Rust core directly through UniFFI and build our own SwiftUI nav screen, or contribute upstream. All three
+      are survivable. Discovering them mid-P3 is not.
+    </p>
+  </div>
+  <div class="card lead-warn">
+    <h4>Apple adds release gates Android does not have</h4>
+    <p>
+      A navigation app needs <code>UIBackgroundModes: location</code>, and App Review scrutinises background
+      location hard. We have a good story — turn-by-turn guidance is the canonical justification — but it has
+      to be told, with a demo account or a demonstrable route, and a privacy manifest declaring exactly what
+      the location data is used for.
+    </p>
+    <p class="decide">
+      <b>Design consequence:</b> P7 grows. Budget for two store submissions, an Apple privacy manifest,
+      background-location justification, and at least one rejection-and-resubmit cycle. Also: CocoaPods entered
+      maintenance mode in August 2025 with no releases after Q2 2026, so <strong>SPM is the only sensible
+      distribution path</strong> for both our own framework and our dependencies.
+    </p>
+  </div>
+</div>
+
+<div class="card lead-good">
+  <div class="head"><span class="chip ok"><span class="dot"></span>Legal</span><h4>Speed-camera warnings are legal in Denmark</h4></div>
+  <p>
+    Unlike Germany and France, Denmark has no prohibition on apps that warn about speed controls —
+    community traffic-alert apps are legal to use. What <em>is</em> illegal is active radar/laser detector
+    hardware, and flashing your headlights to warn other drivers. So a speed-camera and fotovogn layer is
+    fine to build; a hardware detector integration is not.
+  </p>
+</div>
+
+<h2 id="decisions">The decision table</h2>
+
+<p>
+  Every component, the choice, what it beat, and how confident the research makes me. Confidence is about
+  <em>the facts behind the choice</em>, not about whether it will work.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Component</th><th>Choice</th><th>Beat</th><th>Deciding reason</th><th>Conf.</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Client platform</b><span class="sub">new in rev. 3</span></td>
+      <td>Kotlin Multiplatform shared core + <em>native</em> shells (Compose / SwiftUI)</td>
+      <td>Flutter, React Native, shared Compose Multiplatform UI</td>
+      <td>KMP is officially supported for sharing business logic while keeping native UI, and it is the only option that does not throw away the existing Kotlin work. A cross-platform UI toolkit would cost us direct control over exactly the things this app lives on: map rendering, frame-synced camera, background location and platform navigation conventions. Compose Multiplatform for iOS UI was rejected for the same reason MapLibre Compose was — do not concentrate risk in an unstable presentation layer.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Apple integration</b><span class="sub">new in rev. 3</span></td>
+      <td>XCFramework exported to <b>Swift Package Manager</b></td>
+      <td>CocoaPods, direct framework embedding</td>
+      <td>CocoaPods went into maintenance mode in August 2025 with no releases after Q2 2026 — starting a new project on it in mid-2026 is choosing a dead path. Kotlin 2.4.20-Beta2+ generates the SPM manifest alongside the XCFramework, and MapLibre Native iOS and Ferrostar both already distribute via SPM. One dependency mechanism for the whole iOS app.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Local data</b><span class="sub">new in rev. 3</span></td>
+      <td>Room KMP — one schema, both platforms</td>
+      <td>SQLDelight, two native persistence layers</td>
+      <td>Room officially supports Android, iOS and JVM, is backed by the KMP-compatible <code>androidx.sqlite</code> driver APIs, and keeps us on the mainstream AndroidX path. <b>Pin the stable 2.7.x line</b>: Room 3.0 (KMP-first, KSP-only, adds JS/WASM) is still alpha — track it, do not build P2 on it.</td>
+      <td class="conf">Med-High</td>
+    </tr>
+    <tr>
+      <td><b>Networking</b><span class="sub">new in rev. 3</span></td>
+      <td>Ktor client in <code>commonMain</code></td>
+      <td>OkHttp + URLSession, one per platform</td>
+      <td>All eight gateways are plain JSON over HTTP, so there is nothing platform-specific to preserve. <code>kotlinx-serialization-json</code> — already in dmap2 — carries over to the shared module unchanged, so the DTO and parser layer is written once.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Routing engine</b></td>
+      <td>Valhalla (MIT)</td>
+      <td>OSRM, GraphHopper</td>
+      <td>Per-request dynamic costing: car, bike and foot from <em>one</em> deployment with no graph rebuild. OSRM needs a full rebuild per profile — disqualifying for three modes. GraphHopper's flexible mode is the honest runner-up: it matches the flexibility but gives up its CH speed edge to do so, and Valhalla bundles Meili map matching in the same container.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Map matching</b></td>
+      <td>Valhalla Meili (<code>trace_route</code> / <code>trace_attributes</code>)</td>
+      <td>Custom snapping</td>
+      <td>Already in the engine we run. HMM/Viterbi over candidate edges; <code>map_snap</code> mode handles noisy GPS. Free with the routing container.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Navigation SDK</b></td>
+      <td>Ferrostar (BSD, Rust core + UniFFI)</td>
+      <td>maplibre-navigation-android/-ios, hand-rolled</td>
+      <td>Purpose-built for Valhalla + MapLibre, vendor-neutral, no telemetry, functional core that already does line snapping, step advance, deviation detection and TTS — and it is <em>already</em> cross-platform (shared Rust core, UniFFI bindings for Kotlin and Swift), which is exactly the shape we want. The alternative is a fork of Mapbox Nav v0.19. <b>Caveat:</b> the iOS UI layer is alpha — see the P2.5 gate.</td>
+      <td class="conf">Med<span class="sub">High for the Rust core, Med for the iOS UI</span></td>
+    </tr>
+    <tr>
+      <td><b>Public transport</b></td>
+      <td>Rejseplanen API 2.0 live + GTFS static local</td>
+      <td>Valhalla GTFS transit tiles</td>
+      <td>Valhalla transit tiles expire after 60 days and multimodal has open correctness bugs. Rejseplanen is the authority for DK and includes real-time.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Tile build</b></td>
+      <td>Planetiler + extended OpenMapTiles profile</td>
+      <td>Second tippecanoe pipeline (dmap2's approach)</td>
+      <td>Emit <code>osm_type</code>/<code>osm_id</code>/category directly on POI features. Kills the 548-line hit detector and the 81 MB parallel tileset.</td>
+      <td class="conf">Med-High</td>
+    </tr>
+    <tr>
+      <td><b>Base POI data</b></td>
+      <td>OSM (geometry + authority)</td>
+      <td>—</td>
+      <td>Denmark has an active OSM community, annual aerial imagery and an open-data policy. Best geometry, best coverage of non-commercial features.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Business enrichment</b></td>
+      <td>Overture Places (CDLA-Permissive 2.0) + CVR P-enheder</td>
+      <td>Foursquare OS Places alone, scraping</td>
+      <td>Overture: ~75M POIs (59M from Meta), monthly, commercial use fine, stable GERS IDs. Contains <em>no OSM data</em> — OSM ↔ Overture conflation is our own fuzzy matching (see POI pipeline). CVR: the official Danish register, ~885k companies, P-numbers are physical locations with addresses.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Address data</b></td>
+      <td>Datafordeleren DAR bulk import</td>
+      <td>DAWA <span class="chip stop"><span class="dot"></span>dies 17 Aug</span></td>
+      <td>DAWA closes in three weeks. Bulk import into our own index is faster at query time anyway.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Search engine</b></td>
+      <td>Meilisearch server-side + SQLite FTS5 on device</td>
+      <td>Photon, Typesense, Elasticsearch</td>
+      <td>Meilisearch is Rust + LMDB (disk-backed, low RAM), typo tolerance, prefix search and geosearch built in. Typesense is in-memory — wrong cost curve on one box. Photon was dmap2's heaviest component.</td>
+      <td class="conf">Med</td>
+    </tr>
+    <tr>
+      <td><b>Tile format</b></td>
+      <td>MBTiles server-side, MapLibre offline regions on device</td>
+      <td>PMTiles on device</td>
+      <td>PMTiles shines on static cloud hosting; on-device MapLibre Native support is not first-class. MapLibre's own offline region API is the supported path.</td>
+      <td class="conf">Med</td>
+    </tr>
+    <tr>
+      <td><b>Map rendering</b></td>
+      <td>MapLibre Native on both platforms behind our <code>MapController</code>; MapLibre Compose in the Android nav screen only</td>
+      <td>All-in on MapLibre Compose</td>
+      <td>Compose wrapper explicitly not API-stable. Isolate the risk instead of betting the app on it. MapLibre Native iOS is the mature descendant of Mapbox GL Native iOS and ships as an XCFramework on SPM and CocoaPods, so the iOS side takes no new risk here.</td>
+      <td class="conf">High</td>
+    </tr>
+    <tr>
+      <td><b>Speed cameras</b></td>
+      <td>OSM <code>highway=speed_camera</code> + <code>enforcement</code> relations, plus our own crowdsourced layer</td>
+      <td>Commercial feed</td>
+      <td>Only ~20 fixed ATK in DK today (expanding to 60 under Infrastrukturplan 2035) — small enough to curate by hand. Mobile <em>fotovogne</em> are not open data anywhere; they must be crowdsourced.</td>
+      <td class="conf">Med</td>
+    </tr>
+    <tr>
+      <td><b>Speed limits</b></td>
+      <td>OSM <code>maxspeed</code> from the tiles, Vejdirektoratet as cross-check</td>
+      <td>Vejdirektoratet only</td>
+      <td>DK OSM maxspeed coverage: motorway/trunk/primary 100%, secondary 99.85%, tertiary 77.16%. Good enough to ship a speed-limit display.</td>
+      <td class="conf">Med-High</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="data">Data sources: what, licence, cost</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Source</th><th>Gives us</th><th>Licence</th><th>Cost / limits</th><th>Refresh</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>OSM Denmark</b><span class="sub">Geofabrik extract</span></td>
+      <td>Roads, geometry, base POIs, maxspeed, speed cameras, buildings, landuse</td>
+      <td>ODbL — share-alike on derived <em>databases</em>, attribution required</td>
+      <td>Free</td><td>Daily available; weekly is plenty</td>
+    </tr>
+    <tr>
+      <td><b>Overture Places</b><span class="sub">GeoParquet on S3/Azure</span></td>
+      <td>~75M global POIs (59M Meta, plus Microsoft, Foursquare, PinMeTo): names, categories, websites, socials, phones, brands, addresses; GERS stable IDs. <b>No OSM data</b></td>
+      <td>CDLA-Permissive 2.0 (Foursquare-sourced rows: Apache 2.0)</td>
+      <td>Free; planet ≈ 7.2 GB, filter to DK bbox</td><td>Monthly releases</td>
+    </tr>
+    <tr>
+      <td><b>CVR</b><span class="sub">Erhvervsstyrelsen / Virk</span></td>
+      <td>~885k companies, P-enheder (physical production units) with addresses, DB07 industry codes, status</td>
+      <td>Public register; registration required</td>
+      <td>Free API via Virk, registration</td><td>Continuous</td>
+    </tr>
+    <tr>
+      <td><b>Datafordeleren DAR</b><span class="sub">replaces DAWA</span></td>
+      <td>Authoritative Danish addresses, road names, postal codes</td>
+      <td>Free public basic data</td>
+      <td>Free; API key or OAuth</td><td>Bulk file download + GraphQL</td>
+    </tr>
+    <tr>
+      <td><b>Danske Stednavne</b><span class="sub">Dataforsyningen</span></td>
+      <td>Official place names: towns, districts, islands, waters, ancient monuments</td>
+      <td>Free public geodata</td><td>Free</td><td>Periodic</td>
+    </tr>
+    <tr>
+      <td><b>Rejseplanen GTFS</b><span class="sub">labs.rejseplanen.dk</span></td>
+      <td>1,569 routes · 36,707 stops · 21 operators; NeTEx also offered</td>
+      <td>CC BY 4.0</td><td>Free, account required</td><td>≈ every 14 days</td>
+    </tr>
+    <tr>
+      <td><b>Rejseplanen API 2.0</b></td>
+      <td>Live journey planning, departure/arrival boards, journey detail, disruptions (HIM)</td>
+      <td>CC BY 4.0</td>
+      <td><b>50k req/month free (non-commercial)</b>; €5,000/yr for 100k/day commercial</td><td>Real-time</td>
+    </tr>
+    <tr>
+      <td><b>GeoDanmark Ortofoto</b><span class="sub">Dataforsyningen WMTS</span></td>
+      <td>Spring orthophotos, annual</td>
+      <td>CC BY 4.0 — Klimadatastyrelsen / GeoDanmark</td><td>Free, token required</td><td>Annual</td>
+    </tr>
+    <tr>
+      <td><b>Vejdirektoratet</b><span class="sub">Dataudveksleren</span></td>
+      <td>State-road speed limits, roadworks, traffic messages, restrictions</td>
+      <td>Public</td><td>Free / partner API</td><td>Continuous</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <p>
+    <strong>Licence hygiene matters here.</strong> OSM is ODbL (share-alike on derived databases); Overture
+    Places is CDLA-Permissive (no share-alike); Rejseplanen is CC BY. Keep <code>source</code> and
+    <code>licence</code> columns on <em>every row</em> in the place index from day one, and generate the
+    attribution screen from that table. Retro-fitting provenance to a merged dataset is close to impossible —
+    this is the cheapest insurance in the whole plan.
+  </p>
+</div>
+
+<h2 id="places">The place model — one ID to rule them</h2>
+
+<p>
+  This is the spine of the product. dmap2's single most expensive mistake was that a tapped POI, a search
+  result and a saved place were three unrelated things. In dmap3 they are one type with one ID, and every
+  feature — search, tap, save, share, route, navigate — speaks that ID.
+</p>
+
+<pre><b>PlaceId</b>  = "&lt;namespace&gt;:&lt;native-id&gt;"      <span class="c">stable, never regenerated, safe to persist</span>
+             osm:n1234567      <span class="c">OSM node / way / relation</span>
+             ovt:08f2ab…       <span class="c">Overture GERS ID</span>
+             cvr:1018234567    <span class="c">CVR P-enhed (production unit)</span>
+             dar:0a3f50…       <span class="c">Datafordeleren address UUID</span>
+             rjp:008600626     <span class="c">Rejseplanen stop ID</span>
+             usr:9f2c…         <span class="c">user-created POI (ours)</span>
+
+<b>Place</b> {
+  id, name, altNames[]          <span class="c">da / en, plus synonyms for search</span>
+  category                      <span class="c">our own normalised taxonomy, not OSM tags</span>
+  lat, lon, geometry?           <span class="c">point always; polygon when we have one</span>
+  address { road, houseNo, postcode, city }
+  contact { phone, web, email, socials }
+  openingHours?, brand?
+  <b>sources[]</b> { namespace, nativeId, licence, fetchedAt }   <span class="c">provenance, always</span>
+  confidence                    <span class="c">how sure are we this exists</span>
+  visibility                    <span class="c">public | private (user POIs)</span>
+}</pre>
+
+<p>
+  <strong>The rule:</strong> a <code>Place</code> may have several entries in <code>sources[]</code> — an OSM
+  node conflated with an Overture record and a CVR P-enhed is <em>one</em> Place with three sources. The
+  canonical ID is chosen by priority (<code>osm</code> &gt; <code>ovt</code> &gt; <code>cvr</code> &gt;
+  <code>usr</code>), so an OSM-backed place keeps a stable ID even as enrichment sources come and go.
+</p>
+
+<h2 id="poi">POI pipeline: OSM + Overture + CVR + yours</h2>
+
+<h3>Four sources, one index</h3>
+
+<pre>OSM DK extract  ──▶ osmium tags-filter ──▶ normalise ──┐
+Overture Places ──▶ DuckDB filter to DK bbox ──────────┤
+CVR P-enheder   ──▶ address → geocode via DAR ─────────┼──▶ <b>conflate</b> ──▶ places table
+Datafordeleren  ──▶ DAR bulk addresses ────────────────┤                      │
+Stednavne       ──▶ official place names ──────────────┘                      │
+                                                                 ┌────────────┴────────────┐
+User-created POIs ──▶ places table (source=usr) ─────────────────┤                         │
+                                                                 ▼                         ▼
+                                                     <b>Meilisearch index</b>        <b>tile build + live overlay</b>
+                                                     (online search)            (map rendering)
+                                                                 │
+                                                                 ▼
+                                                   pruned <b>SQLite FTS5</b> per offline region</pre>
+
+<h3>Conflation — the part that goes wrong</h3>
+
+<p>
+  No shortcut exists here. Overture's places theme contains <strong>no OSM data</strong> — places come from
+  Meta (~59M of ~75M rows), Microsoft, Foursquare and PinMeTo — and the GERS bridge files map places back
+  to <em>those</em> sources only; OSM bridge files exist for buildings, divisions and transportation, not
+  places. So OSM ↔ Overture is fuzzy matching, and it is the dominant conflation workload, not the fallback.
+</p>
+
+<ol>
+  <li><strong>OSM ↔ Overture:</strong> our own matcher — block on distance (~75 m) and category, score on
+    normalised-name similarity, accept above a conservative threshold, queue the ambiguous band for review.
+    A wrong merge is worse than a duplicate: unmatched pairs are just two pins until reviewed.
+    <strong>Prototype on one municipality and measure precision/recall before designing P2 around it.</strong></li>
+  <li><strong>CVR ↔ existing:</strong> match on normalised address (DAR address UUID) + name similarity above a threshold. A CVR P-enhed at the same address with a similar name is the same business.</li>
+  <li><strong>Unmatched CVR:</strong> keep as its own Place, geocoded from its DAR address, flagged
+    <code>confidence: address-derived</code> so the UI can show it slightly differently.</li>
+  <li><strong>Never delete on re-import.</strong> Re-run conflation into a new table, diff against the live
+    one, and apply the diff — so user edits and manual overrides survive every monthly Overture release.</li>
+</ol>
+
+<h3>User-created POIs — two-tier rendering</h3>
+
+<p>
+  A user-added POI must appear on the map <em>immediately</em>, and a tile rebuild takes minutes. So POIs
+  render from two places at once:
+</p>
+
+<div class="cols">
+  <div class="card">
+    <h4>Tier 1 — baked into tiles</h4>
+    <p>
+      OSM + Overture + CVR POIs are baked into the vector tiles by Planetiler with
+      <code>osm_type</code>, <code>osm_id</code>, <code>place_id</code> and our normalised category. Rebuilt weekly.
+      Zero runtime cost, perfect label placement, works offline.
+    </p>
+  </div>
+  <div class="card">
+    <h4>Tier 2 — live overlay</h4>
+    <p>
+      User POIs and anything created since the last tile build come from a GeoJSON bbox endpoint
+      (<code>/places/bbox?…&amp;since=…</code>) rendered as a MapLibre GeoJSON source with the same icon and
+      label styling. On the next tile build they graduate into Tier 1 and drop out of the overlay.
+      <code>since</code> is the <em>tile-build watermark published by the tile server</em>, not client
+      wall-clock — otherwise a place renders twice in the window between creation and rebuild.
+    </p>
+  </div>
+</div>
+
+<p>
+  The client cannot tell the difference: both tiers produce features carrying a <code>place_id</code>, and
+  the tap handler is the same code path for both. <strong>This is what replaces dmap2's 548-line hit
+  detector</strong> — tap, read <code>place_id</code>, call <code>PlaceDetail.byId</code>. Done.
+</p>
+
+<h4>Editing model</h4>
+<ul class="tight">
+  <li>Create, edit, moderate own POIs; every change is an append-only revision, never an in-place update.</li>
+  <li>Private POIs (<code>visibility: private</code>) never enter the shared index or tiles.</li>
+  <li>An "improve this place" flow on OSM-sourced places writes a <em>local override</em> rather than editing
+    the OSM record — and optionally queues an OSM note for upstream contribution.</li>
+  <li>Overrides are applied <em>after</em> conflation, so an upstream re-import can never silently clobber them.</li>
+</ul>
+
+<h2 id="hazards">Speed cameras and hazards</h2>
+
+<p>
+  Legal in Denmark (see constraints). There are two very different classes of hazard, and conflating them
+  produces a bad product:
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Source</th><th>Volume</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Fixed ATK (stærekasser)</b></td>
+      <td>OSM <code>highway=speed_camera</code>, <code>enforcement</code> relations; cross-check against Vejdirektoratet ATK maps</td>
+      <td>~20 today, planned expansion to 60</td>
+      <td>Static. Bake into tiles. Warn on approach with direction awareness — the <code>enforcement</code> relation carries which direction it measures.</td>
+    </tr>
+    <tr>
+      <td><b>Section control</b></td>
+      <td><code>enforcement=average_speed</code> relations (from/to nodes)</td>
+      <td>Few</td>
+      <td>Zone, not a point. Show entry, average speed across the zone, and exit.</td>
+    </tr>
+    <tr>
+      <td><b>Mobile fotovogne</b></td>
+      <td><b>Crowdsourced — ours.</b> No open dataset exists.</td>
+      <td>Unbounded, ephemeral</td>
+      <td>Time-decaying reports: confirm/deny voting, expire after a few hours, weight by reporter reliability.</td>
+    </tr>
+    <tr>
+      <td><b>Other hazards</b></td>
+      <td>Vejdirektoratet traffic messages + crowdsourced</td>
+      <td>Moderate</td>
+      <td>Roadworks, accidents, closures. Same time-decay model as fotovogne.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="card lead-accent">
+  <h4>Design the hazard layer as its own service from day one</h4>
+  <p>
+    Hazards are not places. They have geometry <em>plus</em> a direction, a validity window, a confidence and
+    a decay function. Give them their own table, their own endpoint (<code>/hazards/bbox</code>,
+    <code>/hazards/along-route</code>) and their own contract. The along-route query is the one that matters
+    for navigation: given the active route polyline, return hazards within a corridor ahead, ordered by
+    distance along the route. Do this server-side — the client should never scan a bbox during navigation.
+  </p>
+  <p class="decide">
+    <b>Warning UX:</b> announce once at a distance scaled by speed (roughly 10–15 seconds of travel time,
+    not a fixed metre count), show the enforced limit next to the current speed, and never repeat within
+    the same approach.
+  </p>
+</div>
+
+<h2 id="routing">Routing: Valhalla for car, bike and foot</h2>
+
+<p>
+  Valhalla is the choice because its costing is evaluated <strong>per request against the tiles</strong>, not
+  baked into a precomputed hierarchy. Car, bike and foot come from one container and one tile set, and a
+  user preference ("avoid motorways", "prefer cycle paths", "avoid stairs") is a JSON field, not a rebuild.
+  OSRM's contraction hierarchies make it faster per query but require a full graph rebuild to change a
+  profile — which is disqualifying when you ship three modes plus user preferences.
+</p>
+
+<div class="cols3">
+  <div class="card">
+    <h4>Car — <code>auto</code></h4>
+    <ul class="tight">
+      <li>Motorway/toll/ferry avoidance as user prefs</li>
+      <li>Live traffic later via Vejdirektoratet messages as edge penalties</li>
+      <li>Hazard-aware: not a costing input, a display layer</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Bike — <code>bicycle</code></h4>
+    <ul class="tight">
+      <li><code>bicycle_type</code>: city / cross / road / mountain</li>
+      <li><code>use_roads</code> and <code>use_hills</code> sliders map directly to Danish cycling culture</li>
+      <li>Elevation tiles optional — Denmark is flat enough to defer</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Foot — <code>pedestrian</code></h4>
+    <ul class="tight">
+      <li>Walking speed, step/stair penalties</li>
+      <li>Accessibility variant: avoid steps, prefer kerb ramps</li>
+      <li>Used for the first/last leg of transit journeys</li>
+    </ul>
+  </div>
+</div>
+
+<h4>Build cost — sanity check</h4>
+<p>
+  A full-planet Valhalla build is documented at roughly <strong>600 GB of temporary disk and ~15 hours</strong>
+  (without elevation). The Denmark extract is on the order of 450 MB against a ~80 GB planet PBF, so a
+  Denmark build should land in the <strong>minutes-to-tens-of-minutes range with a few GB of working space</strong>.
+  <span class="conf">Estimate by extrapolation — measure it in P1 and record the real number.</span>
+  Keep <code>valhalla_build_tiles</code> thread count configurable; OOM during tile building is the common
+  failure mode and lowering threads is the documented fix.
+</p>
+
+<div class="card lead-hot">
+  <h4>Do not use Valhalla for public transport</h4>
+  <p>
+    Valhalla can ingest GTFS and build transit tiles, but <strong>transit tiles are only valid for 60 days
+    after generation</strong> and the multimodal path has open correctness issues. That is a recurring
+    maintenance burden for a worse answer than the national journey planner. Use Rejseplanen instead and let
+    Valhalla do what it is excellent at: the street network.
+  </p>
+</div>
+
+<h2 id="transit">Public transport via Rejseplanen</h2>
+
+<p>
+  The trick is to split "what does the network look like" (static, local, free) from "when does the next bus
+  actually leave" (live, API, metered).
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Served by</th><th>API calls</th></tr></thead>
+  <tbody>
+    <tr><td>Stops on the map, stop icons, line colours</td><td>GTFS static, baked into tiles</td><td class="num">0</td></tr>
+    <tr><td>Stop search / autocomplete</td><td>GTFS stops in our own index (<code>rjp:</code> namespace)</td><td class="num">0</td></tr>
+    <tr><td>Which lines serve this stop</td><td>GTFS static</td><td class="num">0</td></tr>
+    <tr><td>Scheduled timetable browsing</td><td>GTFS static</td><td class="num">0</td></tr>
+    <tr><td><b>Live departures at a stop</b></td><td><code>departureBoard</code></td><td class="num">1 / view</td></tr>
+    <tr><td><b>Journey planning A→B</b></td><td><code>trip</code></td><td class="num">1 / search</td></tr>
+    <tr><td><b>Following a journey live</b></td><td><code>journeyDetail</code></td><td class="num">1 / poll</td></tr>
+    <tr><td>Disruptions</td><td><code>him</code></td><td class="num">1 / refresh</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>Multimodal door-to-door</h4>
+<p>
+  A real journey is <em>walk → transit → walk</em>, sometimes <em>bike → transit → walk</em>. Rejseplanen
+  plans the transit portion between stops; Valhalla plans the legs at each end. Compose them in our own
+  <code>Routing</code> service:
+</p>
+<pre>1. <b>Valhalla pedestrian</b>  origin → candidate departure stops   <span class="c">(local, free, fast)</span>
+2. <b>Rejseplanen trip</b>     departure stop → arrival stop        <span class="c">(1 API call, live)</span>
+3. <b>Valhalla pedestrian</b>  arrival stop → destination           <span class="c">(local, free, fast)</span>
+4. <b>stitch</b> into one Route with typed legs: Walk | Transit | Bike | Drive</pre>
+<p>
+  Rejseplanen's <code>trip</code> endpoint also accepts coordinates directly, which is simpler but gives up
+  control of the walking legs. Use coordinates for the first implementation, then switch to stop-to-stop with
+  our own walking legs when we want Danish-quality pedestrian routing at each end.
+  <strong>Cache aggressively</strong> — identical A→B within a few minutes should not spend a second call.
+</p>
+
+<div class="card lead-warn">
+  <h4>Decide the over-budget behaviour now, not at request 50,001</h4>
+  <p>
+    When the monthly meter runs out, the transit-gateway <strong>degrades, never fails</strong>: journey
+    planning and departure boards fall back to GTFS static schedule times, clearly labelled "scheduled"
+    instead of "live". The client contract carries <code>realtime: bool</code> on every transit answer from
+    day one so the UI can badge it — retrofitting that flag later touches every screen.
+  </p>
+  <p class="decide">
+    <b>Also check before P5:</b> whether Rejseplanen Labs offers <strong>GTFS-RT</strong> under the same free
+    terms as the static feed. A feed-level realtime source would let the gateway poll once centrally and
+    serve every user from cache — that restructures the entire cost problem and could make the 50k budget
+    nearly irrelevant.
+  </p>
+</div>
+
+<h2 id="location">Location precision — the jerky-puck fix</h2>
+
+<div class="callout">
+  <p>
+    <strong>Root cause, stated plainly.</strong> GPS delivers about <strong>1 fix per second</strong>. The
+    display renders at <strong>60–120 Hz</strong>. If you move the puck when a fix arrives, you get exactly one
+    jump per second — that is the hopping. On top of that, raw fixes wander several metres laterally even on a
+    straight road, and GPS-derived bearing is unusable below walking pace. These are three separate problems
+    and they need three separate fixes. Most implementations fix one and wonder why it still looks wrong.
+  </p>
+</div>
+
+<h3>The pipeline</h3>
+
+<pre><span class="c">           ├──────────────── shared/commonMain ────────────────┤</span>
+raw fix ─▶ <b>L1 gate</b> ─▶ <b>L2 filter</b> ─▶ <b>L3 snap</b> ─▶ <b>L4 predict</b> ─▶ <b>L5 bearing</b> ─▶ <b>L6 camera</b> ─▶ screen
+<span class="c">  ▲</span>        reject      Kalman     to route     per-frame    smoothed     frame-synced
+<span class="c">  │</span>        garbage     smooth     polyline     dead-reckon  course       puck + map
+<span class="c">native L0                                                       native L6</span>
+<span class="c">Fused / CoreLocation                              Choreographer / CADisplayLink</span></pre>
+
+<div class="callout">
+  <p>
+    <strong>This is the part that pays for the shared core.</strong> L1 through L5 are pure functions over a
+    stream of fixes — no platform API, no UI, no I/O. They live in <code>commonMain</code>, are written once,
+    tuned once, and regression-tested once against the same recorded Danish traces from both the Kotlin and the
+    iOS test targets. Only the two ends are native: <strong>L0</strong>, which asks the OS for fixes, and
+    <strong>L6</strong>, which drives the camera on the platform's frame clock.
+  </p>
+  <p>
+    rev. 2 described this pipeline as "about 400 lines of well-tested Kotlin, not a platform problem". With two
+    platforms committed that sentence gets stronger, not weaker: it is 400 lines that would otherwise be
+    written and tuned twice, in two languages, against two sets of bugs.
+  </p>
+</div>
+
+<div class="card lead-accent">
+  <div class="head"><span class="idx">L0</span><h4>Ingest — get the best fixes each OS will give you <span class="chip info"><span class="dot"></span>native</span></h4></div>
+  <p><b>Android</b></p>
+  <ul class="tight">
+    <li><code>PRIORITY_HIGH_ACCURACY</code> with <code>intervalMillis = 1000</code> and
+      <code>minUpdateIntervalMillis = 500</code>. Google explicitly sanctions second-scale intervals for
+      foreground mapping apps; it is background use that must not do this.</li>
+    <li>Foreground service with <code>location</code> type for the whole navigation session — otherwise the
+      OS throttles you and the jitter gets worse, not better.</li>
+    <li>Never set <code>setMaxUpdateDelayMillis</code> during navigation — batching is the enemy here. Use it
+      only in browse mode to save battery.</li>
+  </ul>
+  <p><b>iOS</b></p>
+  <ul class="tight">
+    <li><code>CLLocationManager</code> with <code>desiredAccuracy = kCLLocationAccuracyBestForNavigation</code>
+      and <code>activityType = .automotiveNavigation</code> — the activity type is what tells the OS this is a
+      vehicle and changes its filtering behaviour.</li>
+    <li><code>allowsBackgroundLocationUpdates = true</code> plus the <code>location</code> background mode, and
+      <code>pausesLocationUpdatesAutomatically = false</code> — the default pause behaviour will silently stop
+      your navigation session.</li>
+    <li>Request <em>When In Use</em> first and escalate; do not open with an Always prompt.</li>
+  </ul>
+  <p class="decide">
+    <b>Both:</b> keep the raw fix stream and hand it to the shared pipeline as a
+    platform-neutral <code>RawFix</code> (lat, lon, accuracy, speed, bearing, monotonic timestamp). Every layer
+    below is testable only if you can replay raw traces — and only if the trace format does not know which OS
+    recorded it.
+  </p>
+</div>
+
+<div class="card lead-accent">
+  <div class="head"><span class="idx">L1</span><h4>Gate — throw away bad fixes before they poison the filter</h4></div>
+  <ul class="tight">
+    <li>Reject <code>accuracy &gt; 50 m</code> outright while driving.</li>
+    <li>Reject any fix implying an impossible jump (&gt; ~60 m/s from the last accepted position).</li>
+    <li>Order by <code>elapsedRealtimeNanos</code>, not wall clock, and drop out-of-order arrivals.</li>
+    <li>Track consecutive rejections — three in a row means "signal lost", which L4 handles differently.</li>
+  </ul>
+</div>
+
+<div class="card lead-accent">
+  <div class="head"><span class="idx">L2</span><h4>Filter — a constant-velocity Kalman filter</h4></div>
+  <p>
+    Feed position and the reported accuracy (as measurement variance) into a simple constant-velocity Kalman
+    filter. Output is a smoothed position <em>and a velocity estimate</em> — the velocity is what L4 needs.
+    This is the standard, literature-backed fix for Fused Location and Core Location jitter alike. Roughly 80
+    lines of pure Kotlin in <code>commonMain</code>, fully unit-testable against recorded traces, no
+    dependencies. Run it in a <strong>locally projected plane</strong> (metres — a tangent plane at the last fix
+    is fine), never on raw lat/lon: filtering degrees is the classic implementation bug.
+  </p>
+  <p class="decide">
+    <b>Note:</b> the filter alone will <em>not</em> make it look smooth. It removes noise, not the 1 Hz
+    stepping. People who stop here are the ones who conclude "GPS is just jumpy".
+  </p>
+</div>
+
+<div class="card lead-good">
+  <div class="head"><span class="idx">L3</span><h4>Snap to route — the single biggest visual win</h4></div>
+  <p>
+    While a route is active, project the filtered position onto the active route polyline within a corridor
+    (~25 m). This eliminates <em>all</em> lateral wander instantly: the car is on the road because it is
+    mathematically constrained to the road. Ferrostar's Rust core does exactly this — line snapping plus a
+    navigation state machine for step advance and deviation detection — so this is a library call, not a
+    project.
+  </p>
+  <ul class="tight">
+    <li>Outside the corridor for N consecutive fixes → off-route → trigger reroute. Do not snap harder.</li>
+    <li>When <em>not</em> navigating (free browse/drive), use Valhalla Meili <code>trace_attributes</code>
+      periodically to snap to the road network, or accept the filtered position. Snapping without a route is
+      genuinely harder — do not over-engineer it.</li>
+  </ul>
+</div>
+
+<div class="card lead-good">
+  <div class="head"><span class="idx">L4</span><h4>Predict — a per-frame ticker is what makes it look like a car</h4></div>
+  <p>
+    This is the layer almost everyone omits. Run an animation loop on the frame clock
+    (<code>withFrameNanos</code>/Choreographer on Android, <code>CADisplayLink</code> on iOS). On each frame,
+    advance the puck <em>along the snapped polyline</em> by <code>velocity × Δt</code>. When a new fix arrives,
+    do not teleport — ease the predicted position toward the corrected one over <strong>250–400 ms</strong>.
+  </p>
+  <p>
+    <strong>Split:</strong> the frame <em>source</em> is native, the advance-and-ease <em>math</em> is shared.
+    Each shell ticks its own display link and calls one shared
+    <code>advance(elapsedNanos): PuckState</code>. That keeps the interesting 60 lines in one place and leaves
+    each platform to do only what it alone can do.
+  </p>
+  <p>
+    Now the puck moves every frame at 60–120 Hz instead of once per second, follows the road's curvature
+    because it advances along the polyline, and corrections are invisible because they are eased rather than
+    applied.
+  </p>
+  <p class="decide">
+    <b>Tunnels and signal loss:</b> keep dead-reckoning along the route at last known speed, surface a subtle
+    "estimated position" state, and ease back gently when fixes return. Never freeze the puck — a frozen puck
+    reads as a crashed app.
+  </p>
+</div>
+
+<div class="card lead-good">
+  <div class="head"><span class="idx">L5</span><h4>Bearing — interpolate the course, not just the position</h4></div>
+  <p>
+    Position is nearly atomic; <strong>course is what needs interpolating</strong>. Rules that produce a
+    stable heading:
+  </p>
+  <ul class="tight">
+    <li><strong>While snapped:</strong> take the bearing from the <em>route tangent</em> at the puck's
+      position. The heading then turns exactly as the road turns — through curves, roundabouts and slip roads —
+      with zero GPS noise. This is the trick that makes it feel premium.</li>
+    <li><strong>Free driving above ~3 m/s:</strong> use GPS bearing, smoothed with a shortest-arc angular
+      low-pass so it never takes the long way round 0°/360°.</li>
+    <li><strong>Below ~3 m/s:</strong> hold the last bearing. Never use raw GPS bearing at low speed and never
+      let the puck spin while stationary at a light.</li>
+    <li>The device compass is unreliable inside a car (magnetic interference) — use it for pedestrian mode
+      only.</li>
+  </ul>
+</div>
+
+<div class="card lead-good">
+  <div class="head"><span class="idx">L6</span><h4>Camera — drive it from the same frame tick <span class="chip info"><span class="dot"></span>native</span></h4></div>
+  <p>
+    The classic bug is the puck and the camera animating on different clocks, so the puck slides around the
+    screen during turns. Fix: compute puck position, puck bearing and camera target in <em>one</em> frame
+    callback, then set both. This is per-platform code — the same rule, written twice, because it talks
+    directly to MapLibre's camera API on each side.
+  </p>
+  <ul class="tight">
+    <li>Puck anchored at a fixed screen point (~⅔ down), not centred — you want to see what is ahead.</li>
+    <li><strong>Course-up:</strong> map bearing = smoothed course, so the map rotates and "turn left" points
+      left. North-up is a user preference, not the default, in drive mode.</li>
+    <li>Pitch 45–60° in drive mode, 0° in browse mode, eased on transition.</li>
+    <li>Zoom as a function of speed — roughly z17 in town, easing to z15.5 at motorway speed — so the
+      look-ahead distance stays constant in <em>seconds</em>, not metres.</li>
+    <li>Ease zoom out slightly on maneuver approach so the turn and its exit are both visible.</li>
+  </ul>
+</div>
+
+<h3>Speed display</h3>
+<ul class="tight">
+  <li>Show speed from the <strong>Kalman velocity estimate</strong>, not <code>Location.getSpeed()</code> — the
+    raw value flickers by several km/h at constant speed.</li>
+  <li>Speed limit while navigating from the <em>route's edge attributes</em> (Valhalla returns per-edge
+    <code>speed_limit</code> via <code>trace_attributes</code> on the route shape, fetched once at planning
+    time) — that pins the limit to the edge under the puck with no rendered-tile query. Tile
+    <code>maxspeed</code> is the fallback for free driving. Danish OSM coverage is 100% on
+    motorway/trunk/primary, 99.85% secondary, 77.16% tertiary — good enough to ship.</li>
+  <li>Over-limit styling on the speed readout; hazard warnings show the enforced limit beside current speed.</li>
+</ul>
+
+<h3>How to actually verify this works</h3>
+<div class="card lead-warn">
+  <p>
+    <strong>Record real drives, replay them in tests.</strong> Capture raw fix streams (with timestamps and
+    accuracy) on real Danish roads: a motorway stretch, a roundabout-heavy suburban route, central Copenhagen
+    with tall buildings, and a tunnel. Store them as fixtures. Every layer L1–L5 is then a pure function over a
+    trace and can be unit-tested and regression-tested on the JVM with no device.
+  </p>
+  <p>
+    Ferrostar ships simulated location providers for exactly this. Build the trace harness in P1, before the
+    navigation UI exists — it is the difference between tuning by feel on the motorway and tuning by test.
+  </p>
+  <p class="decide">
+    <b>New in rev. 3 — the fixtures are the cross-platform contract.</b> Store traces as plain JSON
+    (fix stream in, expected <code>PuckState</code> sequence out) with no platform in the format. Assert them
+    from the <code>commonTest</code> source set <em>and</em> from the iOS test target through the exported
+    framework. A trace recorded on an Android phone must produce byte-identical pipeline output on iOS; if it
+    does not, the shared core has leaked a platform assumption and you want to know on the day it happens.
+    Record on both devices so the fixture set covers both GPS stacks.
+  </p>
+</div>
+
+<h2 id="navui">Navigation UI and camera</h2>
+
+<p>
+  Ferrostar provides the navigation state machine, snapping, step advance, deviation detection, spoken
+  instructions via platform TTS, and baseline UI for both Compose and SwiftUI. It is explicitly <em>not</em> a
+  routing engine, basemap or search — we supply Valhalla, our tiles and our place index. That division is
+  exactly what we want, and its own architecture (shared Rust core, UniFFI bindings, native UI per platform)
+  is the same bet we are making one layer up.
+</p>
+
+<div class="cols3">
+  <div>
+    <h4>Take from Ferrostar</h4>
+    <ul class="tight">
+      <li>Navigation controller and state machine</li>
+      <li>Route models, Valhalla request/response handling</li>
+      <li>Line snapping and distance calculation</li>
+      <li>Step advance and deviation detection</li>
+      <li>Spoken instruction plumbing</li>
+      <li>Baseline nav UI — Compose (solid), SwiftUI (alpha)</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Build in <code>shared/</code></h4>
+    <ul class="tight">
+      <li>L1/L2 gate and Kalman filter</li>
+      <li>L4 predictor math, L5 bearing rules</li>
+      <li>Danish voice instruction phrasing</li>
+      <li>Hazard and speed-camera warning logic along route</li>
+      <li>Multimodal leg stitching with Rejseplanen</li>
+      <li>Route, Leg and maneuver domain models</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Build twice, natively</h4>
+    <ul class="tight">
+      <li>L0 ingest and L6 camera controller</li>
+      <li>Map view hosting and layer installation</li>
+      <li>Background session lifecycle</li>
+      <li>Permissions, notifications, audio session, TTS voices</li>
+      <li>Lane and junction presentation</li>
+      <li>Android Auto / CarPlay, if ever</li>
+    </ul>
+  </div>
+</div>
+
+<p class="conf">
+  Ferrostar is a focused SDK with active development, small enough that we should vendor a pinned version and
+  be prepared to read its Rust core. Budget for that, and treat the navigation state machine as a dependency
+  we could replace rather than a foundation we cannot. On iOS that is not a precaution but a live
+  possibility — see the P2.5 gate.
+</p>
+
+<h2 id="platform">Platform strategy — one core, two shells</h2>
+
+<p>
+  The rule is simple and it is the whole strategy: <strong>share everything that is a rule, write natively
+  everything that is a surface.</strong> Business logic, domain models, network contracts, persistence and the
+  location math go in <code>shared/</code>. Anything that touches a screen, a sensor, a permission dialog or an
+  OS lifecycle is written twice, on purpose.
+</p>
+
+<pre>shared/                      <span class="c">Kotlin Multiplatform · exported as XCFramework via SPM</span>
+  commonMain/
+    domain/      Place · PlaceId · Category · Route · Leg · Hazard · TransitJourney
+    application/ search · routing · saving · contribution · hazard use cases
+    data/        Ktor clients · DTOs · parsers · repositories · caching rules
+    location/    <b>L1 gate → L2 Kalman → L3 snap → L4 predict → L5 bearing</b>
+                 TraceReplaySource · PuckState
+    contracts/   <b>MapController</b> · LocationSource · SecureStore · Clock · Tts
+                 each: interface + Unavailable + fake
+  commonTest/    trace fixtures · contract tests · conflation-free pure logic
+  androidMain/   Room driver · DataStore · Keystore adapters
+  iosMain/       Room driver · NSUserDefaults · Keychain adapters
+
+androidApp/                  <span class="c">Jetpack Compose</span>
+  ui/          browse · navigate · contribute · settings
+  map/         MapLibreNativeController (AndroidView) · CameraDirector · LayerRegistry
+  location/    FusedLocationSource (L0) · frame tick via Choreographer (L6)
+  system/      foreground navigation service · permissions · notifications · TTS
+
+iosApp/                      <span class="c">SwiftUI</span>
+  ui/          browse · navigate · contribute · settings
+  map/         MapLibreNativeController (UIViewRepresentable) · CameraDirector · LayerRegistry
+  location/    CoreLocationSource (L0) · frame tick via CADisplayLink (L6)
+  system/      background location lifecycle · permissions · notifications · AVSpeechSynthesizer</pre>
+
+<div class="cols">
+  <div class="card lead-good">
+    <h4>What this buys</h4>
+    <ul class="tight">
+      <li>One place model, one <code>PlaceId</code>, one conflation-aware repository — the spine of the product
+        cannot drift between platforms.</li>
+      <li>One location pipeline, tuned once against one set of traces.</li>
+      <li>One set of gateway contracts, so a backend change breaks both builds at compile time rather than one
+        of them at runtime.</li>
+      <li>Existing dmap2 Kotlin — <code>PlaceModels</code>, the Photon parser pattern, service interfaces — is
+        portable rather than discarded.</li>
+    </ul>
+  </div>
+  <div class="card lead-warn">
+    <h4>What it does <em>not</em> buy</h4>
+    <p>
+      Be honest about the ratio. Expect <strong>55–65% shared non-UI code</strong>, not 60–75% of the app.
+      For a navigation product the expensive work is exactly what stays native: map layer installation,
+      frame-synced camera, background lifecycle, permissions, audio session, notifications. That is most of P3
+      and P4, and KMP does not touch it.
+    </p>
+    <p>
+      The backend is doing more sharing than the shared module is. Eight gateways already hold search,
+      conflation, routing, transit, hazards and identity server-side — <strong>keep it that way</strong>. Every
+      time logic could live in a gateway or in the client, put it in the gateway.
+    </p>
+  </div>
+</div>
+
+<div class="card lead-accent">
+  <h4>Two interop rules that keep the Swift side pleasant</h4>
+  <ol class="tight">
+    <li><strong>Do not export <code>StateFlow</code> into SwiftUI screens.</strong> Keep native view models on
+      each platform (<code>ViewModel</code> / <code>@Observable</code>) and let them call shared
+      <em>use cases</em> that return plain suspend results. Presentation stays native, the Swift API stays
+      idiomatic, and no presentation concern leaks into <code>commonMain</code>.</li>
+    <li><strong>Keep the exported surface small and stable.</strong> Everything not deliberately part of the
+      Swift API is <code>internal</code>. The XCFramework's public surface is a design artifact — review it
+      like an API, because that is what it is.</li>
+  </ol>
+</div>
+
+<h2 id="client">Client architecture</h2>
+
+<p>
+  The source-set layout is above. What follows are the cross-cutting rules — the ones that decide whether the
+  two shells stay in step or quietly diverge over six months.
+</p>
+
+<h3>The <code>MapController</code> contract</h3>
+
+<p>
+  One interface in <code>shared/contracts/</code>, two native implementations. It exposes <em>semantic</em>
+  commands and an event stream, never a map object:
+</p>
+
+<pre><b>interface MapController</b>
+  <span class="a">commands</span>   setCamera(target, zoom, bearing, pitch, ease) · setLayerVisible(id, bool)
+             setGeoJson(sourceId, payload) · setBaseLayer(style) · fitBounds(bbox)
+  <span class="a">events</span>     Flow&lt;MapEvent&gt;  Tap(placeId) · CameraIdle(bounds) · StyleLoaded · Error
+
+  <span class="c">impl androidApp  MapLibreNativeController — AndroidView + MapLibre Android SDK</span>
+  <span class="c">impl iosApp      MapLibreNativeController — UIViewRepresentable + MapLibre iOS SDK</span>
+
+<b>CameraDirector</b>   browse / drive / transit behaviours — <span class="c">rules shared, application native</span>
+<b>LayerRegistry</b>    poi · hazards · route · transit · imagery · user-overlay
+                  <span class="c">layer ids and ordering shared; installation native</span></pre>
+
+<p>
+  The point of "semantic commands" is that <code>MapEvent.Tap</code> carries a <code>PlaceId</code>, not a
+  screen coordinate or a rendered feature. Resolution happens in the tile schema, not in the client — which is
+  what kills dmap2's 548-line hit detector, and what stops us writing it twice.
+</p>
+
+<div class="card lead-accent">
+  <h4>Four rules — three carried forward from the dmap2 review, one new</h4>
+  <ol class="tight">
+    <li><strong>Every backend is an interface with an <code>Unavailable</code> implementation</strong>, written
+      before the backend exists, and declared in <code>commonMain</code> so both shells get the same seam. This
+      is what made Photon a drop-in in dmap2 and it is what will make Rejseplanen, hazards and routing drop-ins
+      here.</li>
+    <li><strong>Backend URLs are a runtime setting</strong> in a debug drawer, not a compile-time
+      <code>BuildConfig</code> chain. dmap2 spent ~120 lines of Gradle, two scripts and a recurring
+      support question on this. <b>rev. 3 upgrades this from preference to requirement</b> — see below.</li>
+    <li><strong>The client never infers what the data should state.</strong> Tap → read <code>place_id</code> →
+      look it up. No geometry-based guessing, ever.</li>
+    <li><strong>A feature is not done until it is done on both platforms.</strong> Not "Android now, iOS in the
+      catch-up sprint". The catch-up sprint never happens, and a half-ported app is how a shared core rots into
+      an Android core with a Swift wrapper.</li>
+  </ol>
+</div>
+
+<div class="card lead-hot">
+  <h4>Why runtime backend config stops being optional</h4>
+  <p>
+    dmap2's <code>android/app/build.gradle.kts</code> resolves each backend URL through a four-level chain —
+    <code>.env</code> → <code>local.properties</code> → Gradle property → default — and bakes the result into
+    <code>BuildConfig</code>. rev. 2 already wanted that gone. <strong>rev. 3 makes it non-negotiable:</strong>
+    none of that machinery has an Xcode equivalent, and reproducing it as a build-phase script would be a
+    genuinely miserable second implementation of a thing we already decided was a mistake.
+  </p>
+  <p class="decide">
+    <b>Consequence:</b> backend configuration is shared state read from the shared module at runtime, with a
+    settings screen on both shells. This lands in <b>P0b</b>, before there is anything to configure — it is
+    cheap then and expensive once eight gateway URLs exist in two places.
+  </p>
+</div>
+
+<h2 id="backend">Backend topology</h2>
+
+<pre><span class="c">─── build time (Taskfile task graph, artifacts outside the repo) ───</span>
+OSM DK ─▶ <b>Planetiler</b> (OMT profile + dmap extensions) ─▶ denmark.mbtiles
+       ─▶ <b>Valhalla</b> valhalla_build_tiles          ─▶ valhalla_tiles/
+       ─▶ osmium POI + hazard extraction ──┐
+Overture DK (DuckDB filter) ───────────────┼─▶ <b>conflate</b> ─▶ places.db ─▶ Meilisearch index
+CVR P-enheder + DAR addresses ─────────────┘                          └─▶ pruned SQLite FTS5 per region
+Rejseplanen GTFS ─▶ stops/lines ─▶ places.db (rjp:) + transit tile layer
+OSM Liberty @ pinned ref ─▶ style-overrides.json ─▶ style.json + sprites + glyphs
+
+<span class="c">─── run time (docker compose, profiles: core · routing · transit · imagery) ───</span>
+:8080  tiles      TileServer GL Light        style · vector tiles · glyphs
+:8081  places     place-gateway (Node, 0 dep) /search /reverse /place/{id} /bbox
+                                             ├── Meilisearch (internal)
+                                             └── places.db (Postgres/PostGIS or SQLite)
+:8082  routing    Valhalla                   /route /matrix /trace_route /isochrone
+:8083  imagery    ortofoto-gateway           GeoDanmark, token server-side
+:8084  transit    transit-gateway (Node)     GTFS static locally + Rejseplanen proxy + cache
+:8085  hazards    hazard-gateway (Node)      /bbox /along-route, crowdsource ingest
+:8086  identity   identity-gateway (Node)    anon device IDs · tokens · rate limits · moderation
+
+all: cap_drop ALL · no-new-privileges · read_only where possible · 127.0.0.1 by default</pre>
+
+<p>
+  The <strong>transit-gateway is the one that pays for itself</strong>: it holds the Rejseplanen API key
+  server-side (never in the APK), serves GTFS static answers locally at zero API cost, and caches live
+  responses so a hundred users looking at the same departure board cost one call. It is also where the 50k/month
+  budget is enforced and measured.
+</p>
+
+<div class="card lead-accent">
+  <h4>Identity — the backend dmap2 never had, and three features silently need</h4>
+  <p>
+    Reporter-reliability weighting, confirm/deny voting, private POIs that sync, and moderation all assume
+    the server can tell users apart. Full accounts are overkill and a GDPR liability; total anonymity
+    invites spam. The middle path: an <strong>anonymous device identity</strong> — the app generates a
+    keypair, the identity-gateway issues an opaque ID and tokens. That is enough for weighting, rate limits
+    and shadow-bans while storing zero PII. Real accounts (email) arrive only if cross-device sync or
+    sharing ever demands them, as an upgrade of the same identity, not a migration.
+  </p>
+</div>
+
+<h2 id="phases">Build order</h2>
+
+<p>
+  Durations assume <strong>one developer, focused</strong> — this is a solo project and the plan should say
+  so. They are sequencing estimates, not commitments: if a phase tracks at double its range, stop and re-scope
+  rather than push through. With two platforms committed, that re-scope rule carries more weight than it did
+  in rev. 2, because there is now a tempting and wrong way to recover schedule: shipping Android and promising
+  iOS later.
+</p>
+
+<div class="kpis">
+  <div class="tile">
+    <p class="label">rev. 2 estimate<br>Android only</p>
+    <div class="value">4–6</div>
+    <div class="sub">months, solo</div>
+  </div>
+  <div class="tile">
+    <p class="label">rev. 3 estimate<br>Android + iOS</p>
+    <div class="value">7–10</div>
+    <div class="sub">months, solo</div>
+  </div>
+  <div class="tile">
+    <p class="label">Shared non-UI code<br>realistic target</p>
+    <div class="value">55–65%</div>
+    <div class="sub">not 100%, not of total</div>
+  </div>
+  <div class="tile">
+    <p class="label">Hard deadline<br>DAWA shutdown</p>
+    <div class="value">17 Aug</div>
+    <div class="sub">2026 · P0a only</div>
+  </div>
+</div>
+
+<p>
+  The multiplier is not 2×, because the shared core is real leverage on domain, data and location math. It is
+  also not 1.2×, because the expensive parts of a navigation app are the native ones. <strong>7–10 months</strong>
+  is the honest number; treat anything shorter as a plan that has not yet met App Review.
+</p>
+
+<div class="card phase lead-critical">
+  <div class="head"><span class="tag">P0a</span><h4>Credentials — week 1, and nothing else</h4>
+    <span class="chip stop"><span class="dot"></span>DAWA clock</span></div>
+  <p>
+    This week has an external deadline and therefore exactly one job. <strong>No Apple work happens here.</strong>
+  </p>
+  <ul class="tight">
+    <li><strong>Register for Datafordeleren now</strong> (DAWA dies 17 Aug) and <strong>pull one DAR bulk
+      file</strong> to prove access end to end. Snapshot a full export before the cutover so you have working
+      address data regardless of how onboarding goes.</li>
+    <li>Rejseplanen Labs, CVR/Virk, Dataforsyningen token. Credentials have lead time; start every clock.</li>
+    <li>Ask Rejseplanen, in writing, for a commercial-classification ruling on your specific case. The answer
+      takes weeks and is needed by P5.</li>
+    <li>Start Apple Developer Program enrolment <em>as a background task</em> — it has lead time but no cliff,
+      so it must not consume attention this week.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> a DAR bulk file on disk; every credential in hand or in flight; the Rejseplanen question sent.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P0b</span><h4>Dual-platform foundations — 2–3 weeks</h4>
+    <span class="chip info"><span class="dot"></span>restructured in rev. 3</span></div>
+  <ul class="tight">
+    <li>Repo layout: <code>shared/</code> + <code>androidApp/</code> + <code>iosApp/</code>, Taskfile,
+      artifacts outside the tree, version catalog. (dmap2's <code>settings.gradle.kts</code> is a single
+      <code>:app</code> include named <code>dmap2-android</code> — this is a restructure, not an edit.)</li>
+    <li>XCFramework export wired to SPM; the iOS shell consumes the shared module and both apps launch to a
+      settings screen. <strong>Prove the whole loop on day one of this phase</strong> — a change in
+      <code>commonMain</code> reaching a SwiftUI screen is the thing that must never be hard.</li>
+    <li>Apple bundle IDs, signing, provisioning; <strong>macOS CI runner</strong> building and testing the
+      framework and the iOS app. Linux CI keeps shared + Android.</li>
+    <li>All service interfaces + <code>Unavailable</code> + fakes, in <code>commonMain</code>. Runtime backend
+      settings on both shells.</li>
+    <li><strong>Place model and <code>PlaceId</code> namespacing frozen</strong> in <code>commonMain</code> —
+      everything downstream, on both platforms, depends on it.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> both apps launch to a settings screen from one shared core; both CI lanes green; a one-line change in <code>commonMain</code> demonstrably reaches both shells.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P1</span><h4>Tiles, map, and the location trace harness — 3–4 weeks</h4></div>
+  <ul class="tight">
+    <li>Planetiler with extended OpenMapTiles profile emitting <code>osm_type</code>, <code>osm_id</code>,
+      <code>place_id</code> and normalised category on POI layers. Measure and record the real build time.
+      <span class="conf">(platform-independent — the tile pipeline is unaffected by rev. 3)</span></li>
+    <li>Style pipeline <strong>rebuilt</strong> — upstream base at a pinned ref plus a deterministic
+      declarative patch step, plus a CI schema check. One style, both apps. dmap2 proved the
+      shape of this; write it fresh (see <code>docs/dmap2-lessons.md</code>).</li>
+    <li><code>MapController</code> interface in <code>shared/</code>; <strong>both</strong> native
+      implementations over MapLibre Native. Denmark camera defaults re-derived and placed in
+      <code>commonMain</code> so they cannot drift between platforms.</li>
+    <li><strong>Record GPS traces on real Danish roads</strong> (motorway, roundabouts, city canyon, tunnel) —
+      <strong>on both devices</strong>. Build the replay harness in <code>commonTest</code>. Implement L1 gate
+      and L2 Kalman against the fixtures.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> map renders on both platforms; tapping a POI yields the same stable <code>place_id</code> on both; L1/L2 pass identical regression tests from the Kotlin <em>and</em> iOS test targets.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P2</span><h4>Places — the index and the search — 3–4 weeks</h4></div>
+  <ul class="tight">
+    <li>Datafordeleren DAR bulk import; Overture DK filter via DuckDB; CVR P-enheder geocoded via DAR.</li>
+    <li>Conflation: our own name+location matcher for OSM ↔ Overture, prototyped on one municipality
+      <em>first</em> — no bridge-file shortcut exists for places. Then address+name matching for CVR.
+      Provenance on every row.</li>
+    <li>Meilisearch index; place-gateway with <code>/search</code>, <code>/reverse</code>, <code>/place/{id}</code>, <code>/bbox</code>.</li>
+    <li>Shared repositories and Room KMP schema (recents, saved, offline regions, queued contributions) —
+      one schema, one migration history, both platforms.</li>
+    <li>Search UI, place detail as a real navigation destination, saved places and recents —
+      <strong>Compose and SwiftUI</strong>, both against the same shared use cases.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> on <em>both platforms</em>, a tapped POI, a search hit and a saved place all carry the same <code>PlaceId</code>; Danish business search returns results OSM alone cannot.</p>
+</div>
+
+<div class="card phase lead-hot">
+  <div class="head"><span class="tag">P2.5</span><h4>The Ferrostar gate — 1 week, before any navigation UI</h4>
+    <span class="chip hot"><span class="dot"></span>new in rev. 3</span></div>
+  <p>
+    Not a spike — a <strong>gate</strong>. rev. 2 listed "Ferrostar on a real device" as a thing to verify;
+    with iOS committed and the iOS UI layer in alpha, it becomes a phase with a stop condition. Run it on
+    <em>both physical devices</em>:
+  </p>
+  <ol class="tight">
+    <li>Fetch the same Valhalla Denmark route on both.</li>
+    <li>Start a Ferrostar navigation session on both.</li>
+    <li>Replay the same recorded P1 trace through both.</li>
+    <li>Verify snapping, step advance, deviation and reroute, background operation, and Danish TTS.</li>
+    <li>Confirm the customisation points L6 needs: camera control, puck placement and rendering, and whether
+      the nav UI can be composed with our own hazard and speed-limit overlays.</li>
+  </ol>
+  <p class="decide">
+    <b>If iOS does not hold up</b>, decide here between: vendor a pinned fork and patch; drive the Rust core
+    directly through UniFFI and build our own SwiftUI navigation screen; or contribute upstream and pin to
+    your own build. Budget 1–3 extra weeks in P3 for whichever you pick, and record the decision in this
+    document.
+  </p>
+  <p class="exit"><b>Exit:</b> a written go/no-go on Ferrostar's UI layer per platform, a pinned version, and — if no-go on iOS — a named fallback with its cost added to P3.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P3</span><h4>Routing and navigation — the hard one — 6–9 weeks</h4></div>
+  <ul class="tight">
+    <li>Valhalla container, Denmark tiles in the task graph, car/bike/foot profiles with user preferences.
+      <span class="conf">(backend — unaffected by rev. 3)</span></li>
+    <li>Ferrostar integration on both shells per the P2.5 verdict: route preview, navigation session,
+      deviation and reroute, Danish TTS.</li>
+    <li><strong>L3 snap, L4 predictor, L5 bearing in <code>shared/</code></strong> — written and tuned once
+      against the P1 traces before either device sees a road.</li>
+    <li><strong>L6 camera twice, natively</strong> — Choreographer and <code>CADisplayLink</code>, same rules,
+      same constants, two implementations. Plus background session lifecycle: foreground service on Android,
+      background location mode on iOS.</li>
+    <li>Speed display from filtered velocity; speed limit from route edge attributes, tiles as fallback.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> drive the same real route end to end <em>on both phones</em>; on both, the puck never hops, never spins at a standstill, and the map rotates through turns. Verified on the tunnel trace on both.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P4</span><h4>Hazards, speed cameras, and identity — 3–4 weeks</h4></div>
+  <ul class="tight">
+    <li>Identity-gateway: anonymous device identities (server-issued ID, no PII) — the prerequisite for
+      reporter weighting, rate limiting, shadow-bans and a moderation queue. Build it here, where the first
+      feature needs it.</li>
+    <li>Identity keypair generation uses the platform keystore behind a shared <code>SecureStore</code>
+      contract — Android Keystore and iOS Keychain adapters in the respective source sets.</li>
+    <li>Hazard service with time decay, confirm/deny voting and reporter weighting.</li>
+    <li>Fixed ATK and section control from OSM <code>enforcement</code> relations, hand-verified against
+      Vejdirektoratet — there are only ~20, so verify all of them.</li>
+    <li><code>/hazards/along-route</code>; speed-scaled warning logic in <code>shared/</code>; in-drive
+      reporting UI on both shells; alert presentation and audio session handled natively.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> on both platforms, approaching a known ATK produces exactly one timely warning with the enforced limit, in the correct direction of travel.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P5</span><h4>Public transport — 3–4 weeks</h4></div>
+  <ul class="tight">
+    <li>GTFS static import; stops into the place index; stop and line rendering.</li>
+    <li>transit-gateway with Rejseplanen key server-side, response caching, and a call-budget meter.</li>
+    <li>Multimodal leg stitching in <code>shared/</code>: Valhalla pedestrian legs + Rejseplanen transit leg.
+      Written once — this is exactly the kind of rule that must not diverge.</li>
+    <li>Live departure boards; journey following; disruption display; the "scheduled, not live"
+      degradation mode with <code>realtime: bool</code> in the contract, badged on both shells.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> on both platforms, a door-to-door journey with walk + transit + walk renders as one route with live times, and the monthly call meter projects comfortably under 50k. Note the meter counts users, not platforms — two clients per user do not double the budget unless you let them poll twice.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P6</span><h4>Contribution — your own POIs — 3 weeks</h4></div>
+  <ul class="tight">
+    <li>Add/edit place flow; append-only revisions; private vs public visibility. Contributions and private
+      POIs keyed to the P4 anonymous identity — no separate account system.</li>
+    <li>Live overlay tier so new POIs appear instantly, graduating into tiles on the next build.</li>
+    <li>Local overrides on OSM-sourced places that survive re-import; optional OSM note queue.</li>
+    <li>Queued-contribution persistence and retry live in <code>shared/</code>; camera and photo picker, if
+      photos are in scope, are native and are the one place this phase costs double.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> add a business that does not exist in OSM <em>from either phone</em>, find it in search within seconds on the other one, see it on the map, and navigate to it.</p>
+</div>
+
+<div class="card phase">
+  <div class="head"><span class="tag">P7</span><h4>Offline and release — 4–6 weeks</h4>
+    <span class="chip warn"><span class="dot"></span>doubled in rev. 3</span></div>
+  <ul class="tight">
+    <li>Offline regions via MapLibre's region API on both platforms; pruned SQLite FTS5 place index per region.</li>
+    <li>Offline routing decision: ship Valhalla tiles on device, or accept online-only routing. Decide with data.</li>
+    <li><b>Android release:</b> R8, signing, network security config (cleartext debug-only), Play Store listing
+      and data-safety form.</li>
+    <li><b>iOS release:</b> App Store Connect setup, <strong>privacy manifest</strong>, background-location
+      justification for App Review, TestFlight round. Budget for at least one rejection-and-resubmit — the
+      <code>location</code> background mode is the most-questioned entitlement a navigation app requests.</li>
+    <li>Attribution screen generated from the provenance table — one shared generator, two renderers. ODbL,
+      CDLA-Permissive and CC BY all have to be visible.</li>
+    <li>Privacy for release (GDPR): privacy policy; written retention windows for hazard reports (they
+      expire by design — state it); export/delete endpoints for user places and contributions; reports store
+      the anonymous reporter ID only. One policy, two store declarations that must agree with it.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> airplane mode over a downloaded region still renders, searches, and shows place detail — on both platforms — and both builds are accepted by their stores.</p>
+</div>
+
+<div class="callout">
+  <p>
+    <strong>The re-scope valve, named in advance.</strong> If the schedule slips badly, the tempting move is to
+    ship Android and follow with iOS. Rule 4 exists to stop that, so name the legitimate valves now instead:
+    <strong>cut P5 (public transport) or P6 (contribution) from v1</strong>, on both platforms, and ship a
+    narrower app that is whole. A map that navigates beautifully on two platforms beats a map that does
+    everything on one.
+  </p>
+</div>
+
+<h2 id="risks">Risks and what to verify yourself</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>DAWA closes 17 Aug 2026</b> and Datafordeleren onboarding takes longer than expected</td>
+      <td><span class="chip stop"><span class="dot"></span>Critical</span></td>
+      <td>Register this week. Snapshot a full DAR bulk export before the cutover so you have working address data regardless.</td>
+    </tr>
+    <tr>
+      <td><b>Rejseplanen classifies your app as commercial</b> (€5,000/yr)</td>
+      <td><span class="chip hot"><span class="dot"></span>High</span></td>
+      <td>Ask them directly, in writing, before P5. Their definition is "selling data or selling a service using the data" — get your specific case confirmed. Architect for low call volume either way.</td>
+    </tr>
+    <tr>
+      <td><b>Ferrostar's iOS UI layer is alpha</b> and not production-ready by its own documentation</td>
+      <td><span class="chip hot"><span class="dot"></span>High</span></td>
+      <td>The <b>P2.5 gate</b> — verify on a real device before any nav UI is written, with three named fallbacks (fork and patch, drive the Rust core via UniFFI behind our own SwiftUI screen, or contribute upstream). Vendor a pinned version. The Rust core is the mature part and is what we actually depend on.</td>
+    </tr>
+    <tr>
+      <td><b>The shared core rots</b> into an Android core with a Swift wrapper — iOS lags one feature, then three</td>
+      <td><span class="chip hot"><span class="dot"></span>High</span></td>
+      <td>Rule 4: a feature is not done until both platforms pass the same contract and trace fixtures. Enforce it in CI, not in intent — the macOS lane must be blocking from P0b, not advisory. This is the most likely way this plan fails, and it fails slowly enough to be deniable for months.</td>
+    </tr>
+    <tr>
+      <td><b>App Review rejects the background location entitlement</b> or the privacy manifest</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Turn-by-turn navigation is the canonical justification, so the story is good — but prepare it: demo route, clear in-app disclosure, privacy manifest that matches the privacy policy. Budget a rejection cycle in P7. Submit a TestFlight build early rather than discovering the review surface at the end.</td>
+    </tr>
+    <tr>
+      <td><b>KMP build friction</b> — Kotlin/Native compile times, XCFramework packaging, macOS CI cost</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Prove the full <code>commonMain</code> → SwiftUI loop on day one of P0b, when it is cheap to fix. Keep the exported surface small. macOS CI minutes bill at a multiple of Linux — run shared and Android tests on Linux and reserve the macOS lane for the framework build and iOS tests.</td>
+    </tr>
+    <tr>
+      <td><b>MapLibre Compose API churn</b> breaks the Android nav screen</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td><code>MapController</code> abstraction; pin Ferrostar and MapLibre Compose versions; keep both browse maps on MapLibre Native. <b>Downgraded from High in rev. 3</b> — the blast radius is now one platform's nav screen, because iOS never took the dependency.</td>
+    </tr>
+    <tr>
+      <td><b>Crowdsourced ingest invites spam and abuse</b> — voting and weighting assume identities</td>
+      <td><span class="chip hot"><span class="dot"></span>High</span></td>
+      <td>Anonymous device identity from P4: server-issued IDs, rate limits, reporter weighting, shadow-bans, moderation queue. No PII stored.</td>
+    </tr>
+    <tr>
+      <td><b>OSM ↔ Overture matching produces wrong merges</b> — no bridge-file shortcut exists for places</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Conservative thresholds — a duplicate is recoverable, a wrong merge poisons the record. Queue the ambiguous band for review; prototype on one municipality and measure precision/recall before P2.</td>
+    </tr>
+    <tr>
+      <td><b>Extending planetiler-openmaptiles</b> is more work than expected</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Config-driven OpenMapTiles is "a ways off" upstream; the known path is a Java modification of the profile. Time-box it in P1; fallback is a parallel custom-schema layer in the same Planetiler run.</td>
+    </tr>
+    <tr>
+      <td><b>CVR geocoding quality</b> — a P-enhed address is a building, not a shopfront</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Flag address-derived places with lower confidence; prefer OSM/Overture geometry when conflated; let users correct position.</td>
+    </tr>
+    <tr>
+      <td><b>ODbL contamination</b> — mixing OSM into a redistributed database</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Provenance column from day one. If you ever redistribute the merged index, the OSM-derived portion carries ODbL. Keep the ability to emit an OSM-free build.</td>
+    </tr>
+    <tr>
+      <td><b>GDPR</b> — hazard reports and user places are location-derived personal data</td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Reports expire by design — write the retention windows down. Anonymous IDs only, export/delete endpoints, privacy policy before release (P7).</td>
+    </tr>
+    <tr>
+      <td><b>Fotovogn crowdsourcing has a cold-start problem</b></td>
+      <td><span class="chip warn"><span class="dot"></span>Medium</span></td>
+      <td>Ship fixed ATK first (complete and verifiable). Mobile reports only become useful with users — do not gate P4 on them.</td>
+    </tr>
+    <tr>
+      <td><b>Valhalla tile build OOM</b></td>
+      <td><span class="chip info"><span class="dot"></span>Low</span></td>
+      <td>Documented failure mode; lower the thread count. Make threads a task parameter from the start.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Verify these yourself before committing</h3>
+<ol>
+  <li><strong>Rejseplanen commercial classification</strong> for your specific app — in writing, from them.</li>
+  <li><strong>Datafordeleren DAR access</strong>: get a key and pull one bulk file this week. Everything address-shaped depends on it and the clock is running.</li>
+  <li><strong>Overture Denmark POI count and quality</strong>: pull one monthly release, filter to the DK bbox, and count restaurants/shops against OSM. While there, run the OSM ↔ Overture matcher prototype on one municipality — the match rate decides how much of P2 is pipeline and how much is review tooling. Do both before building P2.</li>
+  <li><strong>Rejseplanen GTFS-RT availability and terms</strong> — a free feed-level realtime source would replace most per-user API calls with one central poll and defuse the 50k budget.</li>
+  <li><strong>Ferrostar on real devices — both of them</strong> — with a Valhalla Denmark route, before designing the nav UI around it. This is now the P2.5 gate, not a side quest. Pay particular attention to the SwiftUI layer, which is the weakest part of an otherwise strong SDK.</li>
+  <li><strong>Valhalla Denmark build time and disk</strong> — my figure is extrapolated from planet-scale numbers. Measure it.</li>
+  <li><strong>MapLibre Compose stability</strong> at the moment you start P3; the assessment here is from July 2026 and this is a fast-moving library.</li>
+  <li><strong>The Kotlin SPM export path</strong> on your actual toolchain, in P0b. Official XCFramework-plus-SPM generation is recent; confirm it works on the Kotlin version you pin before you build a phase plan on it, and know that the community Gradle plugins are the fallback.</li>
+  <li><strong>Room KMP on iOS with your schema</strong> — pin the stable 2.7.x line and confirm migrations behave on device. Room 3.0 is alpha; do not let a nice changelog pull you onto it mid-project.</li>
+  <li><strong>Apple Developer enrolment lead time</strong> — start it in P0a week as a background task, and find out early whether you are enrolling as an individual or an entity, because the verification paths differ substantially.</li>
+</ol>
+
+<div class="callout">
+  <p>
+    <strong>The three things that decide whether this becomes the best Danish map app.</strong> First, the
+    <strong>place model in P0</strong> — one ID, one type, provenance on every row. Get it wrong and every
+    later feature pays interest, exactly as dmap2's tap-resolution code did. Second, the
+    <strong>location pipeline in P3</strong> — snapping plus a per-frame predictor plus route-tangent bearing.
+    That combination is the entire difference between "a map that shows where you are" and "a navigation app
+    you would actually use in a car", and it is about 400 lines of well-tested Kotlin in
+    <code>commonMain</code>, not a platform problem. Third, the <strong>OSM ↔ Overture matcher in P2</strong> —
+    there is no bridge-file shortcut, and its precision decides whether enrichment reads as magic or as
+    duplicate pins. Prototype it before you trust it.
+  </p>
+  <p>
+    <strong>rev. 3 adds a fourth, and it is a discipline rather than a component:</strong> keep the two shells
+    in step. The architecture makes sharing possible; only the habit of finishing both sides of a feature makes
+    it real. Every phase above ends with an exit criterion that says "on both platforms" for exactly that
+    reason.
+  </p>
+</div>
+
+<footer>
+  <p>dmap3 master plan · drafted 2026-07-27 · rev. 4 2026-07-30 · companion documents: <code>docs/dmap2-lessons.md</code> (read before building each piece), <code>docs/stack-review.html</code>, <code>docs/rebuild-plan.html</code></p>
+  <p><strong>Sources consulted</strong></p>
+  <ul>
+    <li>Kotlin Multiplatform <span class="conf">(rev. 3)</span> — <a href="https://developer.android.com/kotlin/multiplatform">Android KMP overview</a> · <a href="https://kotlinlang.org/docs/multiplatform/multiplatform-integrate-in-existing-app.html">Integrating into an existing app</a> · <a href="https://kotlinlang.org/docs/multiplatform/multiplatform-spm-export.html">Swift package export setup</a></li>
+    <li>Room KMP <span class="conf">(rev. 3)</span> — <a href="https://developer.android.com/kotlin/multiplatform/room">Room for KMP setup</a> · <a href="https://developer.android.com/jetpack/androidx/releases/room">Room releases</a> · <a href="https://android-developers.googleblog.com/2026/03/room-30-modernizing-room.html">Room 3.0 announcement</a></li>
+    <li>MapLibre iOS <span class="conf">(rev. 3)</span> — <a href="https://github.com/maplibre/maplibre-gl-native-distribution">SPM distribution</a> · <a href="https://maplibre.org/maplibre-native/docs/book/platforms/ios/release.html">iOS release process</a> · <a href="https://swiftpackageindex.com/maplibre/maplibre-gl-native-distribution">Swift Package Index</a></li>
+    <li>Ferrostar iOS <span class="conf">(rev. 3)</span> — <a href="https://stadiamaps.github.io/ferrostar/architecture.html">Architecture</a> · <a href="https://swiftpackageindex.com/stadiamaps/ferrostar">FerrostarCore on SPI</a> · <a href="https://github.com/stadiamaps/ferrostar/releases">Releases</a> · <a href="https://stadiamaps.com/news/ferrostar-building-a-cross-platform-navigation-sdk-in-rust-part-2/">Rust on iOS: XCFramework packaging</a></li>
+    <li>Valhalla — <a href="https://github.com/valhalla/valhalla">github.com/valhalla/valhalla</a> · <a href="https://valhalla.github.io/valhalla/api/map-matching/">Map matching docs</a> · <a href="https://valhalla.github.io/valhalla/mjolnir/getting_started_guide/">Mjolnir build guide</a> · <a href="https://github.com/valhalla/valhalla/discussions/3288">build_tiles memory</a> · <a href="https://github.com/valhalla/valhalla/issues/4777">GTFS multimodal issue</a></li>
+    <li>Routing comparison — <a href="https://www.pistack.xyz/posts/2026-04-25-graphhopper-vs-osrm-vs-valhalla-self-hosted-routing-engines-guide-2026/">GraphHopper vs OSRM vs Valhalla (2026)</a> · <a href="https://mapsi.dev/developers/routing-engine-comparison">Mapsi comparison</a></li>
+    <li>Ferrostar — <a href="https://stadiamaps.github.io/ferrostar/">The Ferrostar Book</a> · <a href="https://github.com/stadiamaps/ferrostar">GitHub</a> · <a href="https://www.zleptnig.com/blog/ferrostar-0-50-0-51-maplibre-compose-migration/">0.50/0.51 MapLibre Compose migration</a></li>
+    <li>MapLibre — <a href="https://maplibre.org/maplibre-compose/">MapLibre Compose</a> · <a href="https://github.com/maplibre/maplibre-navigation-android">maplibre-navigation-android</a> · <a href="https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.location/-location-component/index.html">LocationComponent API</a></li>
+    <li>Rejseplanen — <a href="https://labs.rejseplanen.dk/hc/en-us/articles/21554723926557-Om-API-2-0">Om API 2.0</a> · <a href="https://labs.rejseplanen.dk/hc/en-us/articles/21639730766877-Om-GTFS-Schedule-Static">GTFS Schedule/Static</a> · <a href="https://mobilitydatabase.org/feeds/gtfs/mdb-1292">Mobility Database feed</a></li>
+    <li>Overture — <a href="https://docs.overturemaps.org/guides/places/">Places guide</a> · <a href="https://docs.overturemaps.org/attribution/">Attribution &amp; licensing</a> · <a href="https://docs.overturemaps.org/gers/bridge-files/">GERS bridge files</a> · <a href="https://tech.marksblogg.com/overture-places-pois.html">72M POIs</a></li>
+    <li>Danish data — <a href="https://dawadocs.dataforsyningen.dk/">DAWA docs</a> · <a href="https://confluence.sdfi.dk/display/DML/Mapning+fra+DAWA+til+Datafordeleren">DAWA → Datafordeleren mapping</a> · <a href="https://erhvervsstyrelsen.dk/det-centrale-virksomhedsregister-cvr">CVR</a> · <a href="https://dataforsyningen.dk/data/1038">Danske Stednavne</a> · <a href="https://api.vejdirektoratet.dk/side/standardisering-af-vej-og-trafikdata">Vejdirektoratet data</a></li>
+    <li>Speed cameras — <a href="https://wiki.openstreetmap.org/wiki/Relation:enforcement">OSM enforcement relation</a> · <a href="https://wiki.openstreetmap.org/wiki/Tag:highway=speed_camera">highway=speed_camera</a> · <a href="https://fdm.dk/nyheder/nyt-om-trafik-og-biler/staerekasser-spreder-sig-3-gange-saa-tung-fartkontrol">FDM on ATK expansion</a> · <a href="https://saphe.com/artikler/alt-om-fotovogne-og-fartkontrol-i-danmark">Saphe on DK legality</a></li>
+    <li>Location — <a href="https://developer.android.com/develop/sensors-and-location/location/battery/scenarios">Android location scenarios</a> · <a href="https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest">LocationRequest</a> · <a href="https://docs.here.com/here-sdk/docs/android-navigation-optimization">HERE on interpolated location</a> · <a href="https://github.com/mapbox/mapbox-navigation-ios/issues/1949">Mapbox course interpolation discussion</a></li>
+    <li>Tiles — <a href="https://github.com/onthegomap/planetiler/tree/main/planetiler-custommap">Planetiler custom schema</a> · <a href="https://github.com/onthegomap/planetiler/discussions/290">Extending OpenMapTiles with extra tags</a> · <a href="https://corvusintell.com/blog/field-apps/mbtiles-pmtiles-offline-maps/">MBTiles vs PMTiles offline</a></li>
+    <li>Search — <a href="https://www.meilisearch.com/docs/resources/comparisons/typesense">Meilisearch vs Typesense</a></li>
+  </ul>
+</footer>
+
+</div>
+</body>
+</html>

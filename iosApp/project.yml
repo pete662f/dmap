@@ -1,0 +1,57 @@
+# XcodeGen spec. Generates iosApp.xcodeproj from this file:
+#
+#   brew install xcodegen
+#   cd iosApp && xcodegen generate
+#
+# The generated .xcodeproj is gitignored on purpose. A pbxproj is a merge-
+# conflict generator and an unreviewable diff; this file is the source of truth
+# and is 40 readable lines. Regenerate after adding files.
+
+name: iosApp
+options:
+  bundleIdPrefix: com.dmap
+  deploymentTarget:
+    iOS: "16.0"        # Ferrostar targets iOS 15+; 16 buys modern SwiftUI
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""   # set in P0b once Apple enrolment completes
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: dmap
+        UILaunchScreen: {}
+        # P3. App Review scrutinises background location hard; a turn-by-turn
+        # navigation app is the canonical justification, but the usage strings
+        # have to say so plainly.
+        NSLocationWhenInUseUsageDescription: >-
+          dmap uses your location to show where you are on the map and to guide
+          you while navigating.
+        NSLocationAlwaysAndWhenInUseUsageDescription: >-
+          dmap needs background location so turn-by-turn guidance keeps working
+          when the screen is off or you switch apps.
+        UIBackgroundModes:
+          - location
+          - audio          # spoken instructions during navigation
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dmap
+        INFOPLIST_FILE: Sources/Info.plist
+    dependencies:
+      # The shared Kotlin core, as an XCFramework produced by:
+      #   ./gradlew :shared:assembleDmapSharedXCFramework
+      # See README.md — this is the manual wiring that a newer Kotlin's SPM
+      # export task would replace.
+      - framework: ../shared/build/XCFrameworks/release/DmapShared.xcframework
+        embed: true
+        codeSign: true
