@@ -1,0 +1,66 @@
+name: Feature
+description: A vertical slice of product work
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rule 4 from the plan: **a feature is not done until it is done on both
+        platforms.** Not "Android now, iOS in the catch-up sprint" — the catch-up
+        sprint never happens, and a half-ported app is how a shared core rots
+        into an Android core with a Swift wrapper.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What can a user do afterwards that they could not before?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - P0b Foundations
+        - P1 Tiles, map, traces
+        - P2 Places
+        - P2.5 Ferrostar gate
+        - P3 Routing and navigation
+        - P4 Hazards and identity
+        - P5 Public transport
+        - P6 Contribution
+        - P7 Offline and release
+        - Unscheduled
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: layers
+    attributes:
+      label: Where does the work land?
+      options:
+        - label: "shared/ — domain, use case, data or location logic"
+        - label: "androidApp/ — Compose UI or platform integration"
+        - label: "iosApp/ — SwiftUI or platform integration"
+        - label: "infra/ — gateway, pipeline or tiles"
+
+  - type: checkboxes
+    id: done
+    attributes:
+      label: Definition of done
+      options:
+        - label: Shared logic covered by tests in commonTest
+          required: false
+        - label: Works on Android
+          required: false
+        - label: Works on iOS
+          required: false
+        - label: Both CI lanes green
+          required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, constraints, links

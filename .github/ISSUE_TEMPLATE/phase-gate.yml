@@ -1,0 +1,55 @@
+name: Phase gate
+description: A go/no-go decision with a stop condition (P2.5 is the canonical one)
+labels: ["type: gate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A gate is not a spike. A spike ends with "we learned something"; a gate
+        ends with **a written decision that can stop the phase after it.**
+        Record the decision in this issue and in `docs/dmap3-master-plan.html`.
+
+  - type: input
+    id: question
+    attributes:
+      label: The question
+      placeholder: "Does Ferrostar's SwiftUI layer hold up on a real Danish route?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: procedure
+    attributes:
+      label: What will be run, on what hardware
+      description: Be specific enough that the result is reproducible in six months.
+      value: |
+        On both physical devices:
+        1.
+        2.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fallbacks
+    attributes:
+      label: Named fallbacks, with costs
+      description: >-
+        If the answer is no, what are the options and what does each cost? A gate
+        without fallbacks priced in advance is just a deadline.
+      value: |
+        - Option A — cost:
+        - Option B — cost:
+        - Option C — cost:
+    validations:
+      required: true
+
+  - type: textarea
+    id: verdict
+    attributes:
+      label: Verdict
+      description: Fill in when the gate closes. Per platform.
+      value: |
+        - Android:
+        - iOS:
+        - Pinned version:
+        - Cost added to the next phase:

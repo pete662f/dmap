@@ -1,0 +1,116 @@
+version: '3'
+
+# go-task. Install: brew install go-task
+#
+# The organising constraint on this machine is 16 GB of RAM against a stack that
+# wants 25-35 GB if everything runs at once (Docker gateways, two IDEs, two
+# simulators, Gradle and Kotlin daemons, plus 8 GB for a Planetiler build).
+# So the tasks are grouped by which loop you are in, and the heavy ones say
+# plainly that they want the machine to themselves.
+
+vars:
+  GRADLE: ./gradlew
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  # ---------------------------------------------------------------- loop 1
+  # Seconds. No emulator, no simulator, no Docker. Most work lives here.
+
+  test:
+    desc: "Loop 1 — shared logic on the JVM (the fast loop)"
+    cmds:
+      - '{{.GRADLE}} :shared:jvmTest'
+
+  test:watch:
+    desc: "Loop 1 — rerun shared tests on change"
+    cmds:
+      - '{{.GRADLE}} :shared:jvmTest --continuous'
+
+  test:ios:
+    desc: "Loop 1 — same fixtures on Kotlin/Native (the parity gate)"
+    cmds:
+      - '{{.GRADLE}} :shared:iosSimulatorArm64Test'
+
+  test:all:
+    desc: "Loop 1 — both targets, i.e. what CI will say"
+    cmds:
+      - task: test
+      - task: test:ios
+
+  # ---------------------------------------------------------------- loop 2
+  # A minute. One platform at a time — never both simulators on 16 GB.
+
+  android:
+    desc: "Loop 2 — install and run the Android app"
+    cmds:
+      - '{{.GRADLE}} :androidApp:installDebug'
+      - adb shell am start -n com.dmap/com.dmap.android.MainActivity
+
+  ios:framework:
+    desc: "Build the XCFramework that iosApp consumes"
+    cmds:
+      - '{{.GRADLE}} :shared:assembleDmapSharedXCFramework'
+
+  ios:project:
+    desc: "Regenerate iosApp.xcodeproj from project.yml"
+    deps: [ios:framework]
+    dir: iosApp
+    cmds:
+      - xcodegen generate
+
+  ios:
+    desc: "Loop 2 — open the iOS app in Xcode"
+    deps: [ios:project]
+    cmds:
+      - open iosApp/iosApp.xcodeproj
+
+  # ---------------------------------------------------------------- backend
+
+  backend:up:
+    desc: "Start the core gateways only (tiles + places)"
+    cmds:
+      - ./infra/scripts/up-backend.sh
+
+  backend:verify:
+    desc: "Health-check the running gateways"
+    cmds:
+      - ./infra/scripts/verify-backend.sh
+
+  backend:down:
+    desc: "Stop the gateways and give the RAM back"
+    cmds:
+      - docker compose -f infra/docker-compose.yml down
+
+  # ---------------------------------------------------------------- heavy
+  # These want the machine to themselves. Close the IDEs first.
+
+  data:bootstrap:
+    desc: "HEAVY — build Denmark tiles and search data. Close your IDEs."
+    cmds:
+      - echo "This wants ~8 GB and every core. Ctrl-C now if Xcode or Studio are open."
+      - sleep 5
+      - ./infra/scripts/bootstrap-denmark.sh
+
+  # ---------------------------------------------------------------- checks
+
+  lint:
+    desc: "Shellcheck the infra scripts"
+    cmds:
+      - find infra/scripts -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+
+  ci:
+    desc: "Everything CI runs, locally"
+    cmds:
+      - task: test:all
+      - '{{.GRADLE}} :androidApp:testDebugUnitTest :androidApp:assembleDebug'
+      - task: lint
+
+  clean:
+    desc: "Drop Gradle build output (not the data artifacts)"
+    cmds:
+      - '{{.GRADLE}} clean'

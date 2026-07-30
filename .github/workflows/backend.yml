@@ -1,0 +1,68 @@
+name: backend + infra
+
+# Every quality gate that does NOT need the dataset runs here on every push.
+# Planetiler and Valhalla tile builds deliberately do not: they are hours of
+# work against multi-gigabyte inputs and belong in the Taskfile on a machine
+# with the data, not in CI.
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/backend.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: shellcheck every script
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          find infra/scripts -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+
+      # The deterministic style patch is the reason dmap2 never hand-edited a
+      # generated style.json. Keep its test green.
+      - name: style patch tests
+        run: python3 -m unittest discover -s infra/scripts -p 'test_*.py' -v
+
+  gateways:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: syntax-check the zero-dependency gateways
+        run: |
+          for service in infra/services/*/; do
+            if compgen -G "$service*.js" > /dev/null; then
+              echo "checking $service"
+              for file in "$service"*.js; do node --check "$file"; done
+            fi
+          done
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate compose file
+        run: |
+          if [ -f infra/docker-compose.yml ]; then
+            docker compose -f infra/docker-compose.yml config --quiet
+          else
+            echo "no compose file yet — skipping"
+          fi

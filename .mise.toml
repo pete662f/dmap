@@ -1,0 +1,18 @@
+# Toolchain pins for dmap3. Activate with: brew install mise && mise install
+#
+# Replaces the old .java-version file, which nothing actually read — the M2
+# scripts worked around it with JAVA_HOME=$(/usr/libexec/java_home -v 17).
+# This machine has three JDKs installed (Homebrew 26, Zulu 17, Corretto 11)
+# and Homebrew's 26 is first on PATH, so pinning here is what keeps Gradle,
+# Android Studio and the CI runners agreeing with each other.
+
+[tools]
+java   = "zulu-17"   # matches the JDK already on this machine and in CI.
+                     # Bumping to 21 is a P0b decision, done as its own PR.
+node   = "22"        # gateways (place, transit, hazards, identity, ortofoto)
+python = "3.12"      # infra/scripts/patch-mobile-style.py and its test
+
+[env]
+# Keep Gradle and Kotlin daemons bounded — this is a 16 GB machine and the
+# native shells, Docker and one simulator all want memory at the same time.
+GRADLE_OPTS = "-Dorg.gradle.jvmargs=-Xmx3g"

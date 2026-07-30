@@ -1,0 +1,52 @@
+name: shared + android
+
+on:
+  pull_request:
+    paths:
+      - 'shared/**'
+      - 'androidApp/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/shared-android.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The fast loop, in CI. Most of the product's logic — domain, use cases
+      # and the whole L1-L5 location pipeline — is verified here with no
+      # emulator involved.
+      - name: shared tests (JVM)
+        run: ./gradlew :shared:jvmTest --stacktrace
+
+      - name: android unit tests
+        run: ./gradlew :androidApp:testDebugUnitTest --stacktrace
+
+      - name: assemble debug
+        run: ./gradlew :androidApp:assembleDebug --stacktrace
+
+      - name: upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvm-test-reports
+          path: |
+            shared/build/reports/tests/
+            androidApp/build/reports/tests/
+          retention-days: 7
