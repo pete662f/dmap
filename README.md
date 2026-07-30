@@ -7,9 +7,20 @@ Multimodal routing (car, bike, foot) with Rejseplanen for public transport · a
 POI layer that beats OSM alone · speed cameras and hazards · and a location
 engine that actually tracks a moving car without hopping.
 
-**The plan is the spec:** [`docs/dmap3-master-plan.html`](./docs/dmap3-master-plan.html)
-— every component researched, every choice justified, every deadline named. Read
-it before making architectural decisions.
+## Two documents to read first
+
+**[`docs/dmap3-master-plan.html`](./docs/dmap3-master-plan.html) is the spec** —
+every component researched, every choice justified, every deadline named. Read it
+before making architectural decisions.
+
+**[`docs/dmap2-lessons.md`](./docs/dmap2-lessons.md) is the accumulated
+experience.** This is a ground-up rebuild: an earlier version of this app was
+built, learned from, and **deleted**. No code is reused. That is deliberate —
+reuse smuggles unexamined decisions forward, and the point of a second attempt is
+that each decision gets made properly with the benefit of having made it once.
+Read the relevant section of the lessons before building each piece; every item
+in it cost real time to discover. The old code is readable at the `dmap2-final`
+tag as a reference, never as a source to copy from.
 
 ## Layout
 
@@ -17,8 +28,8 @@ it before making architectural decisions.
 shared/       Kotlin Multiplatform core — domain, use cases, data, location math
 androidApp/   Jetpack Compose shell
 iosApp/       SwiftUI shell (XcodeGen spec; the .xcodeproj is generated)
-infra/        gateways, tile and data pipelines, bootstrap scripts
-docs/         the plan, architecture, setup
+docs/         the plan, and what the previous attempt taught
+infra/        NOT YET BUILT — gateways and data pipelines, rebuilt in P1
 ```
 
 The rule that shapes all of it: **share everything that is a rule, write
@@ -48,9 +59,13 @@ task ios           # build the XCFramework, generate the project, open Xcode
 task --list        # everything else
 ```
 
-Backend URLs are **runtime settings** in each app, not build config. Start the
-gateways with `task backend:up` and point the app at them from its own settings
-screen. This is why a physical device no longer needs a rebuild to change hosts.
+Backend URLs are **runtime settings** in each app, not build config — point each
+app at a host from its own settings screen. This is why a physical device no
+longer needs a rebuild to change hosts.
+
+The backend itself does not exist yet; `infra/` is rebuilt in P1. The
+`backend:*` tasks are declared with their intended interface and currently tell
+you so.
 
 ## The development loops
 
@@ -85,10 +100,12 @@ because on 16 GB the whole stack does not fit in memory at once:
 **P0b — dual-platform foundations.** Both shells launch to a runtime backend
 settings screen from the shared core. The frozen `PlaceId` model, the service
 contracts with `Unavailable` implementations, and L1 (gate) + L2 (Kalman filter)
-of the location pipeline are implemented and tested on both targets. The map
-arrives in P1.
+of the location pipeline are implemented and tested on both the JVM and
+Kotlin/Native targets.
 
-The M2 Android app that preceded this is recoverable at the `dmap2-final` tag.
+Next: **P1** — the tile pipeline and style pipeline rebuilt, `MapController`
+implemented natively on both platforms, and GPS traces recorded on real Danish
+roads so the location pipeline can be tuned against fixtures rather than by feel.
 
 ## Licence
 

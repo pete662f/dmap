@@ -1,9 +1,16 @@
 name: backend + infra
 
-# Every quality gate that does NOT need the dataset runs here on every push.
-# Planetiler and Valhalla tile builds deliberately do not: they are hours of
-# work against multi-gigabyte inputs and belong in the Taskfile on a machine
-# with the data, not in CI.
+# Currently a no-op: infra/ does not exist yet.
+#
+# dmap2's backend was deleted with the rest of its code — dmap3 reuses the
+# knowledge in docs/dmap2-lessons.md, not the scripts. This workflow is kept,
+# with its steps written and commented out, so that the quality gates are
+# decided before the code they guard exists rather than bolted on afterwards.
+#
+# The principle to preserve when P1 fills this in: every gate that does NOT need
+# the dataset runs on every push. Planetiler and Valhalla tile builds do not —
+# they are hours of work against multi-gigabyte inputs and belong in the
+# Taskfile on a machine that has the data.
 
 on:
   pull_request:
@@ -18,51 +25,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  scripts:
+  gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: skip until infra exists
+        id: check
+        run: |
+          if [ -d infra ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "infra/ not present — rebuilt in P1. Nothing to check."
+          fi
+
       - uses: actions/setup-python@v5
+        if: steps.check.outputs.exists == 'true'
         with:
           python-version: '3.12'
 
-      - name: shellcheck every script
-        run: |
-          sudo apt-get update && sudo apt-get install -y shellcheck
-          find infra/scripts -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
-
-      # The deterministic style patch is the reason dmap2 never hand-edited a
-      # generated style.json. Keep its test green.
-      - name: style patch tests
-        run: python3 -m unittest discover -s infra/scripts -p 'test_*.py' -v
-
-  gateways:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
         with:
           node-version: '22'
 
-      - name: syntax-check the zero-dependency gateways
+      - name: shellcheck every script
+        if: steps.check.outputs.exists == 'true'
         run: |
-          for service in infra/services/*/; do
-            if compgen -G "$service*.js" > /dev/null; then
-              echo "checking $service"
-              for file in "$service"*.js; do node --check "$file"; done
-            fi
-          done
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          find infra/scripts -name '*.sh' -print0 | xargs -0 -r shellcheck --severity=warning
 
-  compose:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # dmap2's best backend habit: the style is upstream-at-a-pinned-ref plus a
+      # deterministic patch step, never a hand-edited generated file. Whatever
+      # implements that in dmap3 needs a test, and it runs here.
+      - name: style patch tests
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          if compgen -G 'infra/scripts/test_*.py' > /dev/null; then
+            python3 -m unittest discover -s infra/scripts -p 'test_*.py' -v
+          else
+            echo "no python tests yet"
+          fi
+
+      - name: syntax-check the zero-dependency gateways
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          find infra/services -name '*.js' -print0 | xargs -0 -r -n1 node --check
+
       - name: validate compose file
+        if: steps.check.outputs.exists == 'true'
         run: |
           if [ -f infra/docker-compose.yml ]; then
             docker compose -f infra/docker-compose.yml config --quiet
           else
-            echo "no compose file yet — skipping"
+            echo "no compose file yet"
           fi

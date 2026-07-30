@@ -164,7 +164,7 @@
     without hopping. <strong>Android and iOS</strong>, from a shared Kotlin Multiplatform core.
     Every component researched, every choice justified, every deadline named.
   </p>
-  <p class="meta">Drafted 2026-07-27 · rev. 2 same day: Overture conflation corrected, identity/privacy/transit-degradation added · <b>rev. 3 2026-07-28: iOS committed — KMP shared core, phases re-sequenced, Ferrostar iOS gate added, schedule re-estimated</b> · supersedes docs/rebuild-plan.html · builds on docs/stack-review.html</p>
+  <p class="meta">Drafted 2026-07-27 · rev. 2 same day: Overture conflation corrected, identity/privacy/transit-degradation added · rev. 3 2026-07-28: iOS committed — KMP shared core, phases re-sequenced, Ferrostar iOS gate added, schedule re-estimated · <b>rev. 4 2026-07-30: ground-up rebuild — no dmap2 code reused, port instructions removed, knowledge extracted to docs/dmap2-lessons.md</b> · supersedes docs/rebuild-plan.html · builds on docs/stack-review.html</p>
 </header>
 
 <nav class="toc">
@@ -219,6 +219,24 @@
     phase splits in two. But <strong>Apple enrolment, signing and macOS CI do not go in week 1</strong> — week 1
     belongs to Datafordeleren, which has an immovable external deadline. Apple has lead time; it does not have
     a cliff.
+  </p>
+</div>
+
+<div class="card lead-hot">
+  <div class="head"><span class="chip hot"><span class="dot"></span>Method</span><h4>No dmap2 code is reused — only what dmap2 taught</h4></div>
+  <p>
+    dmap3 is a rebuild from the ground up, not a migration. The dmap2 Android app and its backend have been
+    deleted from the repository; nothing is ported, nothing is copied, and no file is carried across. The
+    reason is not that the old code was bad — much of it worked — but that <strong>reuse smuggles unexamined
+    decisions forward</strong>, and the whole point of a second attempt is that each decision gets made
+    deliberately with the benefit of having made it once already.
+  </p>
+  <p class="decide">
+    <b>Where the knowledge lives:</b> <code>docs/dmap2-lessons.md</code> — the three expensive mistakes, what
+    worked and should be repeated, and the hard-won operational details (glyph builds, index storage, proxy
+    behaviour, tuning knobs) that were embodied in the deleted scripts. <strong>Read the relevant section
+    before building each corresponding piece.</strong> The old code remains readable at the
+    <code>dmap2-final</code> tag as a <em>reference</em>, never as a source to copy from.
   </p>
 </div>
 
@@ -1321,10 +1339,12 @@ all: cap_drop ALL · no-new-privileges · read_only where possible · 127.0.0.1 
     <li>Planetiler with extended OpenMapTiles profile emitting <code>osm_type</code>, <code>osm_id</code>,
       <code>place_id</code> and normalised category on POI layers. Measure and record the real build time.
       <span class="conf">(platform-independent — the tile pipeline is unaffected by rev. 3)</span></li>
-    <li>Style pipeline ported from dmap2 with declarative overrides + CI schema check. One style, both apps.</li>
+    <li>Style pipeline <strong>rebuilt</strong> — upstream base at a pinned ref plus a deterministic
+      declarative patch step, plus a CI schema check. One style, both apps. dmap2 proved the
+      shape of this; write it fresh (see <code>docs/dmap2-lessons.md</code>).</li>
     <li><code>MapController</code> interface in <code>shared/</code>; <strong>both</strong> native
-      implementations over MapLibre Native. Denmark camera constants ported verbatim into
-      <code>commonMain</code> so they cannot drift.</li>
+      implementations over MapLibre Native. Denmark camera defaults re-derived and placed in
+      <code>commonMain</code> so they cannot drift between platforms.</li>
     <li><strong>Record GPS traces on real Danish roads</strong> (motorway, roundabouts, city canyon, tunnel) —
       <strong>on both devices</strong>. Build the replay harness in <code>commonTest</code>. Implement L1 gate
       and L2 Kalman against the fixtures.</li>
@@ -1583,7 +1603,7 @@ all: cap_drop ALL · no-new-privileges · read_only where possible · 127.0.0.1 
 </div>
 
 <footer>
-  <p>dmap3 master plan · drafted 2026-07-27 · rev. 3 2026-07-28 · companion documents: <code>docs/stack-review.html</code>, <code>docs/rebuild-plan.html</code></p>
+  <p>dmap3 master plan · drafted 2026-07-27 · rev. 4 2026-07-30 · companion documents: <code>docs/dmap2-lessons.md</code> (read before building each piece), <code>docs/stack-review.html</code>, <code>docs/rebuild-plan.html</code></p>
   <p><strong>Sources consulted</strong></p>
   <ul>
     <li>Kotlin Multiplatform <span class="conf">(rev. 3)</span> — <a href="https://developer.android.com/kotlin/multiplatform">Android KMP overview</a> · <a href="https://kotlinlang.org/docs/multiplatform/multiplatform-integrate-in-existing-app.html">Integrating into an existing app</a> · <a href="https://kotlinlang.org/docs/multiplatform/multiplatform-spm-export.html">Swift package export setup</a></li>

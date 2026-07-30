@@ -70,45 +70,50 @@ tasks:
       - open iosApp/iosApp.xcodeproj
 
   # ---------------------------------------------------------------- backend
+  #
+  # NOT YET BUILT. dmap2's backend was deleted along with the rest of its code —
+  # dmap3 reuses knowledge, not code. These tasks are the interface the rebuilt
+  # infra/ should expose, kept here so the shape is decided before the scripts
+  # are written. Read docs/dmap2-lessons.md first; the operational traps
+  # (index-on-bind-mount, glyph builds, arm64 images, heap tuning) are all
+  # documented there and all cost real time to find the first time.
 
   backend:up:
-    desc: "Start the core gateways only (tiles + places)"
+    desc: "[P1] Start the core gateways (tiles + places)"
     cmds:
-      - ./infra/scripts/up-backend.sh
+      - task: backend:notbuilt
 
   backend:verify:
-    desc: "Health-check the running gateways"
+    desc: "[P1] Health-check the running gateways"
     cmds:
-      - ./infra/scripts/verify-backend.sh
+      - task: backend:notbuilt
 
   backend:down:
-    desc: "Stop the gateways and give the RAM back"
+    desc: "[P1] Stop the gateways and give the RAM back"
     cmds:
-      - docker compose -f infra/docker-compose.yml down
-
-  # ---------------------------------------------------------------- heavy
-  # These want the machine to themselves. Close the IDEs first.
+      - task: backend:notbuilt
 
   data:bootstrap:
-    desc: "HEAVY — build Denmark tiles and search data. Close your IDEs."
+    desc: "[P1] HEAVY — build Denmark tiles and the place index. Close your IDEs."
     cmds:
-      - echo "This wants ~8 GB and every core. Ctrl-C now if Xcode or Studio are open."
-      - sleep 5
-      - ./infra/scripts/bootstrap-denmark.sh
+      - task: backend:notbuilt
+
+  backend:notbuilt:
+    internal: true
+    cmds:
+      - |
+        echo "Not built yet — infra/ is rebuilt in P1."
+        echo "Read docs/dmap2-lessons.md before you start it."
+        echo "dmap2's built artifacts are parked at ../dmap2-artifacts/ (schema differs; expect to rebuild)."
+        exit 1
 
   # ---------------------------------------------------------------- checks
-
-  lint:
-    desc: "Shellcheck the infra scripts"
-    cmds:
-      - find infra/scripts -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 
   ci:
     desc: "Everything CI runs, locally"
     cmds:
       - task: test:all
       - '{{.GRADLE}} :androidApp:testDebugUnitTest :androidApp:assembleDebug'
-      - task: lint
 
   clean:
     desc: "Drop Gradle build output (not the data artifacts)"

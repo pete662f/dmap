@@ -9,8 +9,8 @@
 [tools]
 java   = "zulu-17"   # matches the JDK already on this machine and in CI.
                      # Bumping to 21 is a P0b decision, done as its own PR.
-node   = "22"        # gateways (place, transit, hazards, identity, ortofoto)
-python = "3.12"      # infra/scripts/patch-mobile-style.py and its test
+node   = "22"        # gateways, once infra/ is rebuilt in P1
+python = "3.12"      # style patch pipeline and data-pipeline scripts (P1/P2)
 
 [env]
 # Keep Gradle and Kotlin daemons bounded — this is a 16 GB machine and the
