@@ -27,7 +27,7 @@ jobs:
           distribution: zulu
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # The fast loop, in CI. Most of the product's logic — domain, use cases
       # and the whole L1-L5 location pipeline — is verified here with no

@@ -37,7 +37,7 @@ jobs:
           distribution: zulu
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # The parity gate: the same trace fixtures, on Kotlin/Native. A trace
       # recorded on an Android phone must produce identical pipeline output
