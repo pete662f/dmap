@@ -3,86 +3,43 @@ package com.dmap.map
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.dmap.R
 import com.dmap.app.AppContainer
 import com.dmap.location.LocationAvailabilityState
 import com.dmap.location.LocationPermissionState
 import com.dmap.location.LocateMeResult
-import com.dmap.place.SelectedPlace
-import com.dmap.place.SelectedPlaceType
-import com.dmap.place.SearchResult
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlin.math.abs
 import org.maplibre.android.camera.CameraUpdateFactory
-import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
 @Composable
@@ -109,216 +66,45 @@ fun MapScreen(
     var currentBearing by remember { mutableStateOf(0.0) }
     var searchFocused by remember { mutableStateOf(false) }
 
-    val locationPermissions = arrayOf(
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.ACCESS_FINE_LOCATION,
-    )
+    val locationPermissions = remember {
+        arrayOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { permissions ->
         val granted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
             permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         viewModel.setLocationPermission(granted)
-        if (granted) {
-            val map = mapLibreMap
-            val style = currentStyle
-            if (map != null && style != null) {
-                appContainer.locationController.enableLocation(map, style)
-                viewModel.setLocationAvailability(
-                    appContainer.locationController.locationAvailability(map),
-                )
-            }
-        }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.setLocationPermission(appContainer.locationController.hasLocationPermission())
-    }
+    MapRuntimeEffects(
+        appContainer = appContainer,
+        viewModel = viewModel,
+        uiState = uiState,
+        mapView = mapView,
+        mapPresentation = mapPresentation,
+        markerController = markerController,
+        ortofotoLayerController = ortofotoLayerController,
+        areaHighlightController = areaHighlightController,
+        poiHitDetector = poiHitDetector,
+        mapLibreMap = mapLibreMap,
+        currentStyle = currentStyle,
+        onMapReady = { mapLibreMap = it },
+        onStyleChanged = { currentStyle = it },
+        onBearingChanged = { currentBearing = it },
+        clearFocus = { focusManager.clearFocus(force = true) },
+    )
 
-    DisposableEffect(mapView) {
-        val onFail = MapView.OnDidFailLoadingMapListener { errorMessage ->
-            viewModel.onBackendLoadFailed(errorMessage)
-        }
-        mapView.addOnDidFailLoadingMapListener(onFail)
-        onDispose {
-            mapView.removeOnDidFailLoadingMapListener(onFail)
-        }
-    }
-
-    LaunchedEffect(mapView) {
-        mapView.getMapAsync { map ->
-            val initialTarget = mapPresentation.defaultCamera.target ?: LatLng(56.1725, 10.0938)
-            mapLibreMap = map
-            map.uiSettings.setRotateGesturesEnabled(true)
-            map.uiSettings.setTiltGesturesEnabled(false)
-            map.uiSettings.setCompassEnabled(false)
-            map.setMinZoomPreference(mapPresentation.minZoom)
-            map.setMaxZoomPreference(mapPresentation.maxZoom)
-            map.setLatLngBoundsForCameraTarget(mapPresentation.cameraBounds)
-            map.cameraPosition = mapPresentation.defaultCamera
-            currentBearing = normalizedBearingDelta(map.cameraPosition.bearing)
-            viewModel.updateSearchBias(
-                latitude = initialTarget.latitude,
-                longitude = initialTarget.longitude,
-                zoom = mapPresentation.defaultCamera.zoom,
-            )
-        }
-    }
-
-    DisposableEffect(mapLibreMap) {
-        val map = mapLibreMap ?: return@DisposableEffect onDispose { }
-
-        val cameraListener = MapLibreMap.OnCameraIdleListener {
-            val camera = map.cameraPosition
-            currentBearing = normalizedBearingDelta(camera.bearing)
-            val target = camera.target ?: return@OnCameraIdleListener
-            viewModel.updateSearchBias(
-                latitude = target.latitude,
-                longitude = target.longitude,
-                zoom = camera.zoom,
-            )
-            val locationComponent = map.locationComponent
-            val userLocation = if (
-                locationComponent.isLocationComponentActivated &&
-                locationComponent.isLocationComponentEnabled
-            ) {
-                locationComponent.lastKnownLocation
-            } else {
-                null
-            }
-            val isCentered = userLocation != null &&
-                Math.abs(target.latitude - userLocation.latitude) < 0.0001 &&
-                Math.abs(target.longitude - userLocation.longitude) < 0.0001
-            viewModel.updateCenteredOnUser(isCentered)
-        }
-        val clickListener = MapLibreMap.OnMapClickListener { point ->
-            focusManager.clearFocus(force = true)
-            val selectedPoi = poiHitDetector.hitTest(map, point)
-            if (selectedPoi != null) {
-                viewModel.selectRenderedPoi(selectedPoi)
-                true
-            } else {
-                false
-            }
-        }
-        val longClickListener = MapLibreMap.OnMapLongClickListener { point ->
-            focusManager.clearFocus(force = true)
-            viewModel.selectCoordinateFromLongPress(
-                longitude = point.longitude,
-                latitude = point.latitude,
-            )
-            true
-        }
-
-        val moveListener = object : MapLibreMap.OnMoveListener {
-            override fun onMoveBegin(detector: MoveGestureDetector) {
-                viewModel.updateCenteredOnUser(false)
-            }
-            override fun onMove(detector: MoveGestureDetector) {}
-            override fun onMoveEnd(detector: MoveGestureDetector) {}
-        }
-        val cameraMoveListener = MapLibreMap.OnCameraMoveListener {
-            currentBearing = normalizedBearingDelta(map.cameraPosition.bearing)
-        }
-
-        map.addOnCameraIdleListener(cameraListener)
-        map.addOnCameraMoveListener(cameraMoveListener)
-        map.addOnMapClickListener(clickListener)
-        map.addOnMapLongClickListener(longClickListener)
-        map.addOnMoveListener(moveListener)
-
-        onDispose {
-            map.removeOnCameraIdleListener(cameraListener)
-            map.removeOnCameraMoveListener(cameraMoveListener)
-            map.removeOnMapClickListener(clickListener)
-            map.removeOnMapLongClickListener(longClickListener)
-            map.removeOnMoveListener(moveListener)
-        }
-    }
-
-    LaunchedEffect(mapLibreMap, uiState.reloadToken) {
-        val map = mapLibreMap ?: return@LaunchedEffect
-        viewModel.onStyleLoading()
-        map.setStyle(uiState.styleUrl) { style ->
-            currentStyle = style
-            viewModel.onStyleLoaded()
-            if (uiState.locationPermissionState == LocationPermissionState.Granted) {
-                appContainer.locationController.enableLocation(map, style)
-                viewModel.setLocationAvailability(
-                    appContainer.locationController.locationAvailability(map),
-                )
-            }
-        }
-    }
-
-    LaunchedEffect(currentStyle, uiState.mapBaseLayer, uiState.imageryTileUrl) {
-        val style = currentStyle ?: return@LaunchedEffect
-        renderOrtofotoLayer(
-            controller = ortofotoLayerController,
-            style = style,
-            baseLayer = uiState.mapBaseLayer,
-            tileUrl = uiState.imageryTileUrl,
-            onFailure = viewModel::onImageryLayerFailed,
-        )
-    }
-
-    LaunchedEffect(uiState.locationPermissionState, mapLibreMap, currentStyle) {
-        val map = mapLibreMap ?: return@LaunchedEffect
-        val style = currentStyle ?: return@LaunchedEffect
-        if (uiState.locationPermissionState == LocationPermissionState.Granted) {
-            appContainer.locationController.enableLocation(map, style)
-            viewModel.setLocationAvailability(
-                appContainer.locationController.locationAvailability(map),
-            )
-        }
-    }
-
-    LaunchedEffect(mapLibreMap, currentStyle, uiState.locationPermissionState) {
-        val map = mapLibreMap ?: return@LaunchedEffect
-        if (currentStyle == null || uiState.locationPermissionState != LocationPermissionState.Granted) {
-            return@LaunchedEffect
-        }
-
-        while (isActive) {
-            viewModel.setLocationAvailability(
-                appContainer.locationController.locationAvailability(map),
-            )
-            delay(1_500L)
-        }
-    }
-
-    LaunchedEffect(currentStyle, uiState.searchUiState.selectedPlace) {
-        val style = currentStyle ?: return@LaunchedEffect
-        markerController.renderSelectedPlace(style, uiState.searchUiState.selectedPlace)
-    }
-
-    LaunchedEffect(currentStyle, uiState.searchUiState.selectedAreaHighlight) {
-        val style = currentStyle ?: return@LaunchedEffect
-        areaHighlightController.renderSelectedArea(style, uiState.searchUiState.selectedAreaHighlight)
-    }
-
-    LaunchedEffect(uiState.searchUiState.selectedPlace?.selectionId) {
-        val selectedPlace = uiState.searchUiState.selectedPlace ?: return@LaunchedEffect
-        val map = mapLibreMap ?: return@LaunchedEffect
-
-        map.animateCamera(
-            CameraUpdateFactory.newLatLngZoom(
-                LatLng(selectedPlace.place.latitude, selectedPlace.place.longitude),
-                mapPresentation.selectionZoomFor(selectedPlace.place.kind),
-            ),
-            mapPresentation.selectionDurationMs,
-        )
-    }
-
-    LaunchedEffect(uiState.overlayMessage?.id) {
-        val message = uiState.overlayMessage ?: return@LaunchedEffect
-        val autoDismiss = message.autoDismissMillis ?: return@LaunchedEffect
-        delay(autoDismiss)
-        viewModel.dismissOverlayMessage(message.id)
-    }
-
-    val searchPanelVisible = searchFocused || uiState.searchUiState.query.isNotBlank()
     val selectedPlace = uiState.searchUiState.selectedPlace
+    val searchPanelVisible = searchFocused || uiState.searchUiState.query.isNotBlank()
+    val locateButtonBottom by animateDpAsState(
+        targetValue = if (selectedPlace != null) 116.dp else 16.dp,
+        animationSpec = tween(durationMillis = 250),
+        label = "locateButtonBottom",
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -326,74 +112,32 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        val locateButtonBottom by animateDpAsState(
-            targetValue = if (selectedPlace != null) 116.dp else 16.dp,
-            animationSpec = tween(durationMillis = 250),
-            label = "locateButtonBottom",
-        )
-        val mapControlEndPadding = 16.dp
-        val mapControlSize = 48.dp
-        val mapControlGap = 12.dp
-        val layerButtonBottom = locateButtonBottom + mapControlSize + mapControlGap
-        val compassBottom = layerButtonBottom + mapControlSize + mapControlGap
-        val northBearing = currentBearing
-        val compassNeedleRotation = -northBearing.toFloat()
-
-        if (abs(northBearing) > COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES) {
-            NorthArrowButton(
-                rotationDegrees = compassNeedleRotation,
-                onClick = {
-                    mapLibreMap?.animateCamera(
-                        CameraUpdateFactory.bearingTo(0.0),
-                        250,
-                    )
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(
-                        end = mapControlEndPadding,
-                        bottom = compassBottom,
-                    ),
-            )
-        }
-
-        LayerToggleButton(
-            baseLayer = uiState.mapBaseLayer,
-            onClick = viewModel::toggleBaseLayer,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(
-                    end = mapControlEndPadding,
-                    bottom = layerButtonBottom,
-                ),
-        )
-
-        LocateMeButton(
-            enabled = uiState.backendState != MapBackendState.Unavailable,
-            active = uiState.locationAvailabilityState == LocationAvailabilityState.Available,
-            isCenteredOnUser = uiState.isCenteredOnUser,
-            onClick = {
-                val map = mapLibreMap ?: return@LocateMeButton
-                when (
-                    val result = appContainer.locationController.recenterOnUser(
-                        map,
-                        mapPresentation.recenterZoom,
-                        mapPresentation.recenterDurationMs,
-                    )
-                ) {
-                    LocateMeResult.PermissionRequired -> permissionLauncher.launch(locationPermissions)
-                    else -> viewModel.onLocateMeResult(result)
+        MapControls(
+            uiState = uiState,
+            currentBearing = currentBearing,
+            locateButtonBottom = locateButtonBottom,
+            onResetBearing = {
+                mapLibreMap?.animateCamera(
+                    CameraUpdateFactory.bearingTo(0.0),
+                    250,
+                )
+            },
+            onToggleLayer = viewModel::toggleBaseLayer,
+            onLocateMe = {
+                val map = mapLibreMap
+                if (map != null) {
+                    when (
+                        val result = appContainer.locationController.recenterOnUser(
+                            map,
+                            mapPresentation.recenterZoom,
+                            mapPresentation.recenterDurationMs,
+                        )
+                    ) {
+                        LocateMeResult.PermissionRequired -> permissionLauncher.launch(locationPermissions)
+                        else -> viewModel.onLocateMeResult(result)
+                    }
                 }
             },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(
-                    end = mapControlEndPadding,
-                    bottom = locateButtonBottom,
-                ),
         )
 
         Column(
@@ -421,7 +165,7 @@ fun MapScreen(
                         viewModel.selectSearchResult(result)
                     },
                 )
-            } else if (uiState.locationPermissionState == LocationPermissionState.Denied) {
+            } else if (uiState.locationPermissionState.isDenied) {
                 PermissionPrompt(
                     onGrant = {
                         permissionLauncher.launch(locationPermissions)
@@ -471,548 +215,61 @@ fun MapScreen(
     }
 }
 
-private fun renderOrtofotoLayer(
-    controller: OrtofotoLayerController,
-    style: Style,
-    baseLayer: MapBaseLayer,
-    tileUrl: String?,
-    onFailure: (String?) -> Unit,
-) {
-    runCatching {
-        controller.render(style, baseLayer, tileUrl)
-    }.onFailure { error ->
-        controller.remove(style)
-        onFailure(error.message)
-    }
-}
-
 @Composable
-private fun LayerToggleButton(
-    baseLayer: MapBaseLayer,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun BoxScope.MapControls(
+    uiState: MapUiState,
+    currentBearing: Double,
+    locateButtonBottom: Dp,
+    onResetBearing: () -> Unit,
+    onToggleLayer: () -> Unit,
+    onLocateMe: () -> Unit,
 ) {
-    val ortofotoActive = baseLayer == MapBaseLayer.Ortofoto
-    Surface(
-        onClick = onClick,
-        modifier = modifier.size(48.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        tonalElevation = 2.dp,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_layers),
-                contentDescription = if (ortofotoActive) "Show map" else "Show Ortofoto",
-                tint = if (ortofotoActive) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MapControlInactiveIconColor
-                },
-                modifier = Modifier.size(24.dp),
-            )
-        }
-    }
-}
+    val mapControlEndPadding = 16.dp
+    val mapControlSize = 48.dp
+    val mapControlGap = 12.dp
+    val layerButtonBottom = locateButtonBottom + mapControlSize + mapControlGap
+    val compassBottom = layerButtonBottom + mapControlSize + mapControlGap
 
-@Composable
-private fun NorthArrowButton(
-    rotationDegrees: Float,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.size(48.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        tonalElevation = 2.dp,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_north_arrow),
-                contentDescription = "Reset north",
-                tint = Color.Unspecified,
-                modifier = Modifier
-                    .size(28.dp)
-                    .rotate(rotationDegrees),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClear: () -> Unit,
-    onFocusChanged: (Boolean) -> Unit,
-    onSearchAction: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(14.dp, RoundedCornerShape(26.dp)),
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        tonalElevation = 2.dp,
-    ) {
-        TextField(
-            value = query,
-            onValueChange = onQueryChange,
+    if (abs(currentBearing) > COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES) {
+        NorthArrowButton(
+            rotationDegrees = -currentBearing.toFloat(),
+            onClick = onResetBearing,
             modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState -> onFocusChanged(focusState.isFocused) },
-            singleLine = true,
-            placeholder = {
-                Text("Search Denmark")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_search),
-                    contentDescription = null,
-                )
-            },
-            trailingIcon = {
-                if (query.isNotBlank()) {
-                    IconButton(onClick = onClear) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(R.drawable.ic_close),
-                            contentDescription = "Clear search",
-                        )
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    onSearchAction()
-                },
-            ),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.primary,
-            ),
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(
+                    end = mapControlEndPadding,
+                    bottom = compassBottom,
+                ),
         )
     }
-}
 
-@Composable
-private fun SearchResultsPanel(
-    searchUiState: SearchUiState,
-    onSelect: (SearchResult) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = 320.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        tonalElevation = 3.dp,
-        shadowElevation = 12.dp,
-    ) {
-        when (searchUiState.status) {
-            SearchStatus.Idle -> {
-                Text(
-                    text = "Type at least two characters to search for a place, address, or POI.",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            SearchStatus.Loading -> {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Text(
-                        text = "Searching…",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-
-            SearchStatus.Empty -> {
-                Text(
-                    text = "No places matched that search.",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            SearchStatus.Error -> {
-                Text(
-                    text = searchUiState.errorMessage ?: "Search is temporarily unavailable.",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            SearchStatus.Results -> {
-                Column {
-                    searchUiState.results.forEachIndexed { index, result ->
-                        SearchResultRow(
-                            result = result,
-                            onClick = { onSelect(result) },
-                        )
-                        if (index < searchUiState.results.lastIndex) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
-                            ) {
-                                Box(modifier = Modifier.size(width = 1.dp, height = 1.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchResultRow(
-    result: SearchResult,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val place = result.place
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PlaceSummaryText(
-            place = place,
-            modifier = Modifier.weight(1f),
-            titleStyle = MaterialTheme.typography.titleSmall,
-            showCoordinates = false,
-        )
-    }
-}
-
-@Composable
-private fun SelectedPlaceCard(
-    selectedPlace: SelectedPlace,
-    isEnrichingPlace: Boolean,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val place = selectedPlace.place
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            PlaceSummaryText(
-                place = place,
-                modifier = Modifier.weight(1f),
-                titleStyle = MaterialTheme.typography.titleMedium,
-                showCoordinates = selectedPlace.type == SelectedPlaceType.CoordinatePin &&
-                    place.title == "Dropped pin",
-                isLoading = isEnrichingPlace,
-            )
-            IconButton(onClick = onClear) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_close),
-                    contentDescription = "Clear selected place",
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlaceSummaryText(
-    place: com.dmap.place.PlaceSummary,
-    titleStyle: TextStyle,
-    showCoordinates: Boolean,
-    isLoading: Boolean = false,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        place.categoryHint?.let { hint ->
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Text(
-            text = place.title,
-            style = titleStyle,
-            fontWeight = FontWeight.SemiBold,
-        )
-        if (isLoading && place.subtitle == null) {
-            TextLinePlaceholder()
-        } else if (place.subtitle != null) {
-            Text(
-                text = place.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (showCoordinates) {
-            Text(
-                text = place.coordinateLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TextLinePlaceholder() {
-    val lineHeightDp = with(LocalDensity.current) {
-        MaterialTheme.typography.bodySmall.lineHeight.toDp()
-    }
-    val infiniteTransition = rememberInfiniteTransition(label = "placeholder")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.22f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "placeholderAlpha",
-    )
-    Box(
+    LayerToggleButton(
+        baseLayer = uiState.mapBaseLayer,
+        onClick = onToggleLayer,
         modifier = Modifier
-            .fillMaxWidth(0.6f)
-            .height(lineHeightDp)
-            .background(
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-                shape = RoundedCornerShape(4.dp),
+            .align(Alignment.BottomEnd)
+            .navigationBarsPadding()
+            .padding(
+                end = mapControlEndPadding,
+                bottom = layerButtonBottom,
+            ),
+    )
+
+    LocateMeButton(
+        enabled = uiState.backendState != MapBackendState.Unavailable,
+        active = uiState.locationAvailabilityState == LocationAvailabilityState.Available,
+        isCenteredOnUser = uiState.isCenteredOnUser,
+        onClick = onLocateMe,
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .navigationBarsPadding()
+            .padding(
+                end = mapControlEndPadding,
+                bottom = locateButtonBottom,
             ),
     )
 }
 
-@Composable
-private fun LocateMeButton(
-    enabled: Boolean,
-    active: Boolean,
-    isCenteredOnUser: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.size(48.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        tonalElevation = 2.dp,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_locate),
-                contentDescription = "Locate me",
-                tint = when {
-                    isCenteredOnUser -> MapControlInactiveIconColor
-                    active -> MaterialTheme.colorScheme.primary
-                    else -> MapControlInactiveIconColor
-                },
-                modifier = Modifier.size(24.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PermissionPrompt(
-    onGrant: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Show your live location",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "Enable location to see the blue dot and jump back to where you are.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Button(onClick = onGrant) {
-                Text("Enable")
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverlayChip(
-    message: MapOverlayMessage,
-    modifier: Modifier = Modifier,
-) {
-    val container = when (message.tone) {
-        MapOverlayTone.Info -> MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
-        MapOverlayTone.Error -> MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
-    }
-    val content = when (message.tone) {
-        MapOverlayTone.Info -> MaterialTheme.colorScheme.onSurface
-        MapOverlayTone.Error -> MaterialTheme.colorScheme.error
-    }
-
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = container,
-        tonalElevation = 2.dp,
-        shadowElevation = 8.dp,
-    ) {
-        Text(
-            text = message.text,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = content,
-        )
-    }
-}
-
-@Composable
-private fun FullscreenBackendError(
-    backendUrl: String,
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.padding(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "Self-hosted map unavailable",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "Backend: $backendUrl",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Button(onClick = onRetry) {
-                Text("Retry")
-            }
-        }
-    }
-}
-
-private const val COMPASS_VISIBLE_BEARING_THRESHOLD_DEGREES = 1.0
-private val MapControlInactiveIconColor = Color(0xFF9E9E9E)
-
-private fun normalizedBearingDelta(bearing: Double): Double {
-    val normalized = ((bearing % 360.0) + 360.0) % 360.0
-    return if (normalized > 180.0) normalized - 360.0 else normalized
-}
-
-@Composable
-private fun rememberMapViewWithLifecycle(
-    lifecycleOwner: LifecycleOwner,
-): MapView {
-    val context = LocalContext.current
-    val mapView = remember(lifecycleOwner) { MapView(context) }
-
-    DisposableEffect(lifecycleOwner, mapView) {
-        var destroyed = false
-        mapView.onCreate(null)
-
-        val observer = object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                mapView.onStart()
-            }
-
-            override fun onResume(owner: LifecycleOwner) {
-                mapView.onResume()
-            }
-
-            override fun onPause(owner: LifecycleOwner) {
-                mapView.onPause()
-            }
-
-            override fun onStop(owner: LifecycleOwner) {
-                mapView.onStop()
-            }
-
-            override fun onDestroy(owner: LifecycleOwner) {
-                if (!destroyed) {
-                    destroyed = true
-                    mapView.onDestroy()
-                }
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            if (!destroyed) {
-                destroyed = true
-                mapView.onDestroy()
-            }
-        }
-    }
-
-    return mapView
-}
+private val LocationPermissionState.isDenied: Boolean
+    get() = this == LocationPermissionState.Denied

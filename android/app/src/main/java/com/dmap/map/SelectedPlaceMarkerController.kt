@@ -3,7 +3,7 @@ package com.dmap.map
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import com.dmap.R
 import com.dmap.place.SelectedPlace
 import org.maplibre.geojson.Feature
@@ -70,7 +70,7 @@ class SelectedPlaceMarkerController(
     private fun markerBitmap(): Bitmap {
         markerBitmap?.let { return it }
 
-        val drawable = AppCompatResources.getDrawable(context, R.drawable.ic_place_pin)
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_place_pin)
             ?: error("Missing selected-place marker drawable.")
         val bitmap = Bitmap.createBitmap(
             drawable.intrinsicWidth.coerceAtLeast(1),

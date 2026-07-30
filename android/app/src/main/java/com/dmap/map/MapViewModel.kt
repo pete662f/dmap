@@ -18,6 +18,7 @@ import com.dmap.services.search.SearchService
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,22 +65,33 @@ class MapViewModel(
 
     fun setLocationPermission(granted: Boolean) {
         _uiState.update { state ->
+            val permissionState = if (granted) {
+                LocationPermissionState.Granted
+            } else {
+                LocationPermissionState.Denied
+            }
+            val availabilityState = if (granted) {
+                if (state.locationAvailabilityState == LocationAvailabilityState.Available) {
+                    LocationAvailabilityState.Available
+                } else {
+                    LocationAvailabilityState.Locating
+                }
+            } else {
+                LocationAvailabilityState.Idle
+            }
+            val overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location }
+            if (
+                state.locationPermissionState == permissionState &&
+                state.locationAvailabilityState == availabilityState &&
+                state.overlayMessage == overlayMessage
+            ) {
+                return@update state
+            }
+
             state.copy(
-                locationPermissionState = if (granted) {
-                    LocationPermissionState.Granted
-                } else {
-                    LocationPermissionState.Denied
-                },
-                locationAvailabilityState = if (granted) {
-                    if (state.locationAvailabilityState == LocationAvailabilityState.Available) {
-                        LocationAvailabilityState.Available
-                    } else {
-                        LocationAvailabilityState.Locating
-                    }
-                } else {
-                    LocationAvailabilityState.Idle
-                },
-                overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Location },
+                locationPermissionState = permissionState,
+                locationAvailabilityState = availabilityState,
+                overlayMessage = overlayMessage,
             )
         }
     }
@@ -188,7 +200,9 @@ class MapViewModel(
     }
 
     fun updateCenteredOnUser(isCentered: Boolean) {
-        _uiState.update { it.copy(isCenteredOnUser = isCentered) }
+        _uiState.update { state ->
+            if (state.isCenteredOnUser == isCentered) state else state.copy(isCenteredOnUser = isCentered)
+        }
     }
 
     fun toggleBaseLayer() {
@@ -214,7 +228,9 @@ class MapViewModel(
     }
 
     fun setBaseLayer(layer: MapBaseLayer) {
-        _uiState.update { it.copy(mapBaseLayer = layer) }
+        _uiState.update { state ->
+            if (state.mapBaseLayer == layer) state else state.copy(mapBaseLayer = layer)
+        }
     }
 
     fun updateSearchQuery(query: String) {
@@ -247,29 +263,30 @@ class MapViewModel(
         longitude: Double,
         zoom: Double,
     ) {
-        searchBias.value = SearchBias(
-            latitude = latitude,
-            longitude = longitude,
+        val nextBias = SearchBias(
+            latitude = latitude.quantizedCoordinate(),
+            longitude = longitude.quantizedCoordinate(),
             zoom = zoom.toInt(),
         )
+        if (searchBias.value != nextBias) {
+            searchBias.value = nextBias
+        }
     }
 
     fun selectSearchResult(result: SearchResult) {
         searchQuery.value = ""
+        val selectedPlace = SelectedPlace(
+            selectionId = nextSelectionId++,
+            place = result.place,
+            type = SelectedPlaceType.PlaceResult,
+            origin = SelectedPlaceOrigin.Search,
+        )
         _uiState.update { state ->
             state.copy(
-                searchUiState = state.searchUiState.copy(
-                    query = "",
-                    status = SearchStatus.Idle,
-                    results = emptyList(),
-                    errorMessage = null,
-                    selectedPlace = SelectedPlace(
-                        selectionId = nextSelectionId++,
-                        place = result.place,
-                        type = SelectedPlaceType.PlaceResult,
-                        origin = SelectedPlaceOrigin.Search,
-                    ),
+                searchUiState = state.searchUiState.selectPlace(
+                    selectedPlace = selectedPlace,
                     selectedAreaHighlight = null,
+                    isEnrichingPlace = false,
                 ),
                 overlayMessage = state.overlayMessage.takeUnless { it?.source == MapOverlaySource.Search },
                 isCenteredOnUser = false,
@@ -283,11 +300,7 @@ class MapViewModel(
         val place = selection.place
         _uiState.update { state ->
             state.copy(
-                searchUiState = state.searchUiState.copy(
-                    query = "",
-                    status = SearchStatus.Idle,
-                    results = emptyList(),
-                    errorMessage = null,
+                searchUiState = state.searchUiState.selectPlace(
                     selectedPlace = SelectedPlace(
                         selectionId = selectionId,
                         place = place,
@@ -571,6 +584,27 @@ class MapViewModel(
             kind = labelSource?.kind ?: PlaceKind.Unknown,
             categoryHint = labelSource?.categoryHint,
         )
+    }
+
+    private fun SearchUiState.selectPlace(
+        selectedPlace: SelectedPlace,
+        selectedAreaHighlight: SelectedAreaHighlight?,
+        isEnrichingPlace: Boolean,
+    ): SearchUiState {
+        return copy(
+            query = "",
+            status = SearchStatus.Idle,
+            results = emptyList(),
+            errorMessage = null,
+            selectedPlace = selectedPlace,
+            selectedAreaHighlight = selectedAreaHighlight,
+            isEnrichingPlace = isEnrichingPlace,
+        )
+    }
+
+    private fun Double.quantizedCoordinate(): Double {
+        val scale = 100_000.0
+        return (this * scale).roundToInt() / scale
     }
 
     private fun distanceMeters(

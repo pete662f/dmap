@@ -117,6 +117,7 @@ class RenderedPoiHitDetector(
         toScreenPoint: (Point) -> ScreenPoint,
     ): PoiCandidate? {
         return features
+            .asSequence()
             .mapNotNull { feature ->
                 val geometryPoint = feature.geometry() as? Point ?: return@mapNotNull null
                 val parsed = parsePointFeatureForSelection(feature) ?: return@mapNotNull null
@@ -141,14 +142,6 @@ class RenderedPoiHitDetector(
     private fun parsePointFeatureForSelection(feature: Feature): ParsedPointFeature? {
         val geometryPoint = feature.geometry() as? Point ?: return null
         val name = feature.stringProperty("name")
-        val danishName = firstNonBlank(
-            feature.stringProperty("name:da"),
-            feature.stringProperty("name_da"),
-        )
-        val englishName = firstNonBlank(
-            feature.stringProperty("name:en"),
-            feature.stringProperty("name_en"),
-        )
         val featureClass = feature.stringProperty("class")
         val subclass = feature.stringProperty("subclass")
 
@@ -157,8 +150,7 @@ class RenderedPoiHitDetector(
                 id = buildFeatureId(feature, geometryPoint, featureClass, subclass, name),
                 title = firstNonBlank(
                     name,
-                    danishName,
-                    englishName,
+                    feature.localizedName(preferDefaultName = false),
                     formatLabel(subclass),
                     formatLabel(featureClass),
                     "Selected place",
@@ -183,13 +175,7 @@ class RenderedPoiHitDetector(
 
         val geometry = feature.geometry() ?: return null
         val areaHighlight = AreaHighlightGeometry.fromGeometry(geometry) ?: return null
-        val name = firstNonBlank(
-            feature.stringProperty("name"),
-            feature.stringProperty("name:da"),
-            feature.stringProperty("name_da"),
-            feature.stringProperty("name:en"),
-            feature.stringProperty("name_en"),
-        )
+        val name = feature.localizedName()
         val featureClass = feature.stringProperty("class")
         val subclass = feature.stringProperty("subclass")
         val areaMeters = feature.doubleProperty("area_m2")
@@ -241,13 +227,15 @@ class RenderedPoiHitDetector(
         queryFeatures: (String) -> List<Feature>,
         tapLatLng: LatLng,
     ): List<AreaCandidate> {
-        return layerIds.flatMap { layerId ->
-            queryFeatures(layerId).mapNotNull { feature ->
-                parseAreaFeature(
-                    feature = feature,
-                    layerId = layerId,
-                    tapLatLng = tapLatLng,
-                )
+        return buildList {
+            layerIds.forEach { layerId ->
+                queryFeatures(layerId).forEach { feature ->
+                    parseAreaFeature(
+                        feature = feature,
+                        layerId = layerId,
+                        tapLatLng = tapLatLng,
+                    )?.let(::add)
+                }
             }
         }
     }
@@ -444,6 +432,17 @@ class RenderedPoiHitDetector(
                 null
             }
         }.getOrNull()
+    }
+
+    private fun Feature.localizedName(preferDefaultName: Boolean = true): String? {
+        val defaultName = if (preferDefaultName) stringProperty("name") else null
+        return firstNonBlank(
+            defaultName,
+            stringProperty("name:da"),
+            stringProperty("name_da"),
+            stringProperty("name:en"),
+            stringProperty("name_en"),
+        )
     }
 
     internal data class ScreenPoint(

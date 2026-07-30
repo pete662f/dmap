@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dmap3 — Ground-Up Rebuild Plan</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --surface-2: #f0efec;
+    --border:    #dedcd6;
+    --border-strong: #c6c3bb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #757370;
+    --accent:  #2a78d6;
+    --accent-soft: #eaf1fc;
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --serious:  #ec835a;
+    --critical: #d03b3b;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --border:    #343431;
+      --border-strong: #4a4a46;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #97968d;
+      --accent: #3987e5;
+      --accent-soft: #1d2c3f;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-primary);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.masthead { border-bottom: 1px solid var(--border); padding-bottom: 28px; margin-bottom: 40px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin: 0 0 10px; }
+  h1 { font-size: 38px; line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; font-weight: 650; }
+  .lede { font-size: 18px; color: var(--text-secondary); margin: 0; max-width: 68ch; }
+  .meta { margin-top: 18px; font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+
+  h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--text-muted);
+       margin: 56px 0 18px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 20px; margin: 32px 0 10px; font-weight: 620; letter-spacing: -.01em; }
+  h4 { font-size: 15px; margin: 0 0 6px; font-weight: 640; }
+  p  { margin: 0 0 14px; color: var(--text-secondary); }
+  strong { color: var(--text-primary); font-weight: 620; }
+
+  code, .path {
+    font-family: var(--mono); font-size: .875em; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+    color: var(--text-primary); white-space: nowrap;
+  }
+  pre {
+    font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 20px; overflow-x: auto; color: var(--text-secondary); margin: 0 0 18px;
+  }
+  pre b { color: var(--text-primary); font-weight: 620; }
+  pre .c { color: var(--text-muted); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted);
+       font-weight: 660; background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  td .sub { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 640;
+          padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+          border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-primary); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .chip.new  .dot { background: var(--accent); }
+  .chip.port .dot { background: var(--good); }
+  .chip.risk .dot { background: var(--warning); }
+  .chip.cut  .dot { background: var(--critical); }
+
+  .phase {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin: 0 0 14px; border-left: 3px solid var(--accent);
+  }
+  .phase .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .phase .tag { font-family: var(--mono); font-size: 12px; font-weight: 660; color: var(--accent);
+                background: var(--accent-soft); border-radius: 5px; padding: 2px 7px; }
+  .phase h3 { margin: 0; font-size: 18px; }
+  .phase .goal { font-size: 14px; color: var(--text-muted); margin: 0 0 12px; }
+  .phase ul { margin-bottom: 12px; }
+  .exit {
+    font-size: 14px; background: var(--surface-2); border-radius: 8px;
+    padding: 10px 14px; border: 1px solid var(--border); color: var(--text-primary);
+  }
+  .exit b { color: var(--accent); font-weight: 660; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--text-secondary); }
+  li { margin-bottom: 5px; }
+  li::marker { color: var(--text-muted); }
+
+  .callout { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 10px;
+             padding: 16px 20px; margin: 20px 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .decision { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+              padding: 16px 20px; margin: 0 0 12px; }
+  .decision h4 { margin-bottom: 4px; }
+  .decision .rec { font-size: 14.5px; color: var(--text-primary); margin-top: 8px;
+                   padding-top: 8px; border-top: 1px dashed var(--border); }
+  .decision .rec b { color: var(--accent); font-weight: 660; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+
+  footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Build plan</p>
+  <h1>dmap3 — rebuilding from the ground up</h1>
+  <p class="lede">
+    A concrete plan for the next iteration: the target stack, the contracts, the repository shape,
+    and a seven-phase build order. Every choice traces back to a finding in the dmap2 stack review.
+  </p>
+  <p class="meta">Drafted 2026-07-27 · companion document: docs/stack-review.html</p>
+</header>
+
+<h2>Goals and non-goals</h2>
+
+<div class="cols">
+  <div>
+    <h3 style="margin-top:0">Goals</h3>
+    <ul>
+      <li>A <strong>Denmark-first native Android map app</strong> that looks and feels like a consumer product, not a demo.</li>
+      <li><strong>Fully self-hosted</strong> data path: tiles, style, glyphs, sprites, search, imagery. No third-party map key in the client.</li>
+      <li><strong>Places are first-class objects</strong> with stable ids — tap, search, save, share and route all refer to the same thing.</li>
+      <li><strong>One command to a working stack</strong> from a clean clone, with honest incremental rebuilds.</li>
+      <li><strong>Routing and offline are designed for from day one</strong>, even if they ship later.</li>
+      <li>Every quality gate that does not need the dataset runs in CI on every push.</li>
+    </ul>
+  </div>
+  <div>
+    <h3 style="margin-top:0">Explicit non-goals</h3>
+    <ul>
+      <li>Coverage outside Denmark at detail zooms. A low-zoom world backdrop is acceptable; a world dataset is not.</li>
+      <li>Multi-tenant / public production hosting. Target is one machine plus personal devices.</li>
+      <li>iOS or a shared KMP core in the first two milestones.</li>
+      <li>Turn-by-turn voice navigation. Route <em>display</em> yes; guidance is a separate product.</li>
+      <li>User accounts, sync, or any server-side user state.</li>
+      <li>Re-implementing a geocoder from scratch when an index build will do.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout">
+  <p>
+    <strong>The organising principle.</strong> dmap2's expensive code all sat where the client had to
+    <em>infer</em> what the data should have stated. dmap3 pushes identity, category and geometry into the
+    tile build and the place index, so the app reads facts instead of guessing them.
+  </p>
+</div>
+
+<h2>Target stack</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Layer</th><th>Choice</th><th>Change from dmap2</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>OSM extract</b></td>
+      <td>Geofabrik Denmark <code>.osm.pbf</code>, pinned + checksummed</td>
+      <td><span class="chip port"><span class="dot"></span>Port</span></td>
+      <td>Already the single source for tiles, POI areas and (now) the place index.</td>
+    </tr>
+    <tr>
+      <td><b>Tile build</b></td>
+      <td>Planetiler, OpenMapTiles profile <b>+ a custom dmap profile layer</b></td>
+      <td><span class="chip new"><span class="dot"></span>Extend</span></td>
+      <td>Same proven builder, but the custom layer emits <code>osm_type</code>/<code>osm_id</code>, a normalised category, and POI polygons — killing F1's separate pipeline.</td>
+    </tr>
+    <tr>
+      <td><b>Tile format</b></td>
+      <td>MBTiles for dev, <b>PMTiles</b> as the shipping artifact</td>
+      <td><span class="chip new"><span class="dot"></span>New</span></td>
+      <td>A single file served over range requests: no tile server process in production, and it is the natural offline-region unit later.</td>
+    </tr>
+    <tr>
+      <td><b>Tile serving (dev)</b></td>
+      <td>TileServer GL Light, unchanged</td>
+      <td><span class="chip port"><span class="dot"></span>Port</span></td>
+      <td>Good local ergonomics, style preview UI, never the bottleneck.</td>
+    </tr>
+    <tr>
+      <td><b>Style</b></td>
+      <td>Pinned OSM Liberty + <b>declarative</b> <code>style-overrides.json</code> + explicit injected layers</td>
+      <td><span class="chip new"><span class="dot"></span>Restructure</span></td>
+      <td>Keeps patch-don't-fork (W2), removes the imperative brittleness (F5). Schema check in CI.</td>
+    </tr>
+    <tr>
+      <td><b>Glyphs / sprites</b></td>
+      <td>Prefetched OpenMapTiles font release; sprites from the pinned style ref</td>
+      <td><span class="chip port"><span class="dot"></span>Port verbatim</span></td>
+      <td>Solved problem. Do not revisit fontnik.</td>
+    </tr>
+    <tr>
+      <td><b>Place index</b></td>
+      <td><b>Locally built SQLite + FTS5 index</b> from the same OSM extract, served by a small gateway; Photon retained as an optional fallback profile</td>
+      <td><span class="chip new"><span class="dot"></span>Replace default</span></td>
+      <td>Removes the JVM, the 885 MB index, the 3 GB memory limit and the volume-sync script (F2). Same <code>PlaceSearch</code> contract either way.</td>
+    </tr>
+    <tr>
+      <td><b>Place detail</b></td>
+      <td>Same index, keyed by <code>osm_type:osm_id</code></td>
+      <td><span class="chip new"><span class="dot"></span>New</span></td>
+      <td>A tapped POI becomes a lookup, not a reverse-geocode-and-hope (F1).</td>
+    </tr>
+    <tr>
+      <td><b>Imagery</b></td>
+      <td>Dependency-free Node gateway for GeoDanmark Ortofoto</td>
+      <td><span class="chip port"><span class="dot"></span>Port verbatim</span></td>
+      <td>Best-behaved service in dmap2 (W3). Becomes the template for all upstreams.</td>
+    </tr>
+    <tr>
+      <td><b>Routing</b></td>
+      <td>Valhalla, Denmark tiles, behind a <code>RoutingService</code> contract</td>
+      <td><span class="chip new"><span class="dot"></span>Deferred but designed</span></td>
+      <td>Contract and port reserved from phase 0; container arrives in phase 6.</td>
+    </tr>
+    <tr>
+      <td><b>Orchestration</b></td>
+      <td>Docker Compose with profiles (<code>core</code>, <code>imagery</code>, <code>routing</code>, <code>photon</code>); all volumes internal</td>
+      <td><span class="chip new"><span class="dot"></span>Improve</span></td>
+      <td>Keeps dmap2's hardening; <code>docker compose up</code> works without a wrapper script (F2).</td>
+    </tr>
+    <tr>
+      <td><b>Task runner</b></td>
+      <td><b>Taskfile</b> (or just/Make) with declared <code>sources</code>/<code>generates</code></td>
+      <td><span class="chip new"><span class="dot"></span>Replace</span></td>
+      <td>Incrementality becomes the tool's job, not three hand-rolled marker schemes (F6).</td>
+    </tr>
+    <tr>
+      <td><b>Artifact root</b></td>
+      <td>Single <code>DMAP_ARTIFACT_ROOT</code>, defaulting <b>outside the repo</b></td>
+      <td><span class="chip new"><span class="dot"></span>New</span></td>
+      <td>Repo stays small and cleanable; reverts cannot strand gigabytes (F7).</td>
+    </tr>
+    <tr>
+      <td><b>App</b></td>
+      <td>Kotlin 2.2.x, Compose BOM current, Material 3, minSdk 26 / target 36</td>
+      <td><span class="chip new"><span class="dot"></span>Refresh</span></td>
+      <td>Same platform, current versions, driven by <code>gradle/libs.versions.toml</code>.</td>
+    </tr>
+    <tr>
+      <td><b>Map SDK</b></td>
+      <td>MapLibre Native Android, current release, wrapped by an explicit <code>MapController</code></td>
+      <td><span class="chip new"><span class="dot"></span>Wrap</span></td>
+      <td>Turns ten synchronising effects into commands + an event flow (F4).</td>
+    </tr>
+    <tr>
+      <td><b>App architecture</b></td>
+      <td>Feature-scoped ViewModels + repositories, manual DI container, Navigation Compose</td>
+      <td><span class="chip new"><span class="dot"></span>Restructure</span></td>
+      <td>Splits the god-ViewModel; gives place detail and settings real destinations.</td>
+    </tr>
+    <tr>
+      <td><b>Persistence</b></td>
+      <td>DataStore for settings, Room for recents / saved places / offline regions</td>
+      <td><span class="chip new"><span class="dot"></span>New</span></td>
+      <td>Present from phase 2 so the repository layer exists before features need it.</td>
+    </tr>
+    <tr>
+      <td><b>Networking</b></td>
+      <td>OkHttp + Ktor-client-style typed DTOs via <code>kotlinx.serialization</code> plugin</td>
+      <td><span class="chip new"><span class="dot"></span>Simplify</span></td>
+      <td>Replaces 185 lines of manual <code>JsonObject</code> walking with annotated DTOs.</td>
+    </tr>
+    <tr>
+      <td><b>Config</b></td>
+      <td>Build-time defaults + <b>runtime override in a debug settings screen</b></td>
+      <td><span class="chip new"><span class="dot"></span>Replace</span></td>
+      <td>Deletes the four-level precedence chain, two verify scripts and the reinstall dance (F3).</td>
+    </tr>
+    <tr>
+      <td><b>CI</b></td>
+      <td>GitHub Actions: unit tests, ktlint, detekt, Android Lint, style-schema check, <code>node --test</code></td>
+      <td><span class="chip new"><span class="dot"></span>New</span></td>
+      <td>All dataset-free, so it runs in under three minutes (F8).</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Architecture</h2>
+
+<pre><span class="c">                      ┌──────────────────────────── build time ────────────────────────────┐</span>
+  Geofabrik DK  ──▶  <b>Planetiler</b> (OMT profile + dmap profile)  ──▶  denmark.pmtiles / .mbtiles
+        │                     <span class="c">stable ids · normalised category · POI polygons</span>
+        │
+        └──────────▶  <b>place-index build</b> (osmium → normalise → SQLite+FTS5)  ──▶  places.db  <span class="c">(~tens of MB)</span>
+
+  OSM Liberty @ pinned ref  ──▶ self-host rewrite ──▶ <b>style-overrides.json</b> ──▶ style.json + sprites
+  OpenMapTiles fonts v2.0   ──▶ prefetch fontstacks in style ─────────────────▶ glyphs/*.pbf
+
+<span class="c">                      ┌──────────────────────────── run time ──────────────────────────────┐</span>
+   :8080  <b>tiles</b>        TileServer GL Light  ·  serves style.json + vector tiles + glyphs
+   :8081  <b>places</b>       place-gateway (Node, 0 deps)  ·  /search  /reverse  /place/{id}
+   :8083  <b>imagery</b>      ortofoto-gateway (Node, 0 deps) ·  token stays server-side
+   :8082  <b>routing</b>      Valhalla  <span class="c">(phase 6; contract reserved from phase 0)</span>
+                        <span class="c">all: cap_drop ALL · no-new-privileges · read_only where possible</span>
+
+<span class="c">                      ┌──────────────────────────── android ───────────────────────────────┐</span>
+   ui/            MapScreen · PlaceDetail · SavedPlaces · Settings   <span class="c">(Compose, Navigation)</span>
+   map/           <b>MapController</b>  — owns MapLibreMap, exposes commands + Flow&lt;MapEvent&gt;
+   domain/        Place · PlaceId · Category · Route      <span class="c">(pure Kotlin, no SDK types)</span>
+   data/          PlaceRepository · TileConfigRepository · SavedPlaceRepository
+   services/      PlaceSearch · PlaceDetail · Routing · Imagery      <span class="c">(interfaces + impls + Unavailable)</span>
+   platform/      LocationProvider · BackendSettings (DataStore) · AppContainer
+</pre>
+
+<h2>Repository layout</h2>
+
+<pre>dmap3/
+├── <b>Taskfile.yml</b>              <span class="c">one entry point: task bootstrap · task up · task apk · task check</span>
+├── .env.example              <span class="c">no secrets, ever; secrets are file paths only</span>
+├── .github/workflows/ci.yml  <span class="c">dataset-free gates, green from commit 1</span>
+├── android/
+│   ├── gradle/libs.versions.toml
+│   └── app/src/main/kotlin/dk/dmap/
+│       ├── ui/ map/ domain/ data/ services/ platform/
+├── pipeline/                 <span class="c">everything that produces artifacts</span>
+│   ├── tiles/                <span class="c">planetiler profile + invocation</span>
+│   ├── style/                <span class="c">pinned ref, self-host rewrite, style-overrides.json, schema check</span>
+│   ├── places/               <span class="c">osm → normalise → SQLite/FTS5 index builder</span>
+│   └── fonts/                <span class="c">fontstack prefetch</span>
+├── services/                 <span class="c">everything that runs</span>
+│   ├── tileserver/           <span class="c">config only</span>
+│   ├── place-gateway/        <span class="c">Node, 0 deps, node --test</span>
+│   ├── ortofoto-gateway/     <span class="c">ported from dmap2 near-verbatim</span>
+│   └── routing/              <span class="c">Valhalla config, phase 6</span>
+├── compose.yaml              <span class="c">profiles: core · imagery · routing · photon</span>
+└── docs/
+    ├── architecture.md  setup.md  contracts.md   <span class="c">timeless reference</span>
+    ├── decisions/       <span class="c">ADR per real decision</span>
+    └── CHANGELOG.md     <span class="c">the milestone narrative lives here, not in the reference docs</span>
+
+<span class="c">artifacts (NOT in the repo) — $DMAP_ARTIFACT_ROOT, default ~/.cache/dmap3/</span>
+├── sources/   <span class="c">osm.pbf, font release, style clone</span>
+├── build/     <span class="c">planetiler work dirs</span>
+└── dist/      <span class="c">denmark.pmtiles · places.db · style/ · glyphs/ — the only things services mount</span>
+</pre>
+
+<h2>The contracts — write these first</h2>
+
+<p>
+  dmap2's best result was that its interfaces held. Define these on day one, each with a real
+  implementation, an <code>Unavailable</code> implementation, and a fake for tests. Nothing in <code>ui/</code> ever
+  imports a service implementation.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Contract</th><th>Shape</th><th>Backed by</th><th>Phase</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>TileSource</code></td>
+      <td><code>styleUrl()</code>, <code>attribution()</code>, <code>bounds()</code></td>
+      <td>TileServer GL / PMTiles</td><td class="num">P1</td>
+    </tr>
+    <tr>
+      <td><code>PlaceSearch</code></td>
+      <td><code>search(query, bias, limit): List&lt;Place&gt;</code><br><code>reverse(lat, lon): Place?</code></td>
+      <td>place-gateway (SQLite/FTS5); Photon fallback</td><td class="num">P3</td>
+    </tr>
+    <tr>
+      <td><code>PlaceDetail</code></td>
+      <td><code>byId(PlaceId): PlaceRecord?</code></td>
+      <td>place-gateway, keyed on <code>osm_type:osm_id</code></td><td class="num">P3</td>
+    </tr>
+    <tr>
+      <td><code>Imagery</code></td>
+      <td><code>tileUrlTemplate(): String?</code>, <code>isConfigured()</code></td>
+      <td>ortofoto-gateway</td><td class="num">P4</td>
+    </tr>
+    <tr>
+      <td><code>Routing</code></td>
+      <td><code>route(from, to, mode): Route</code></td>
+      <td>Stub → Valhalla</td><td class="num">P0 / P6</td>
+    </tr>
+    <tr>
+      <td><code>LocationProvider</code></td>
+      <td><code>Flow&lt;LocationState&gt;</code>, <code>permission: Flow&lt;PermissionState&gt;</code></td>
+      <td>Fused / MapLibre engine</td><td class="num">P2</td>
+    </tr>
+    <tr>
+      <td><code>BackendSettings</code></td>
+      <td><code>Flow&lt;BackendConfig&gt;</code>, <code>update(...)</code></td>
+      <td>DataStore, defaults from BuildConfig</td><td class="num">P0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p style="margin-top:16px">
+  The one addition over dmap2: <code>LocationProvider</code> is a <code>Flow</code>, not a poll. That deletes the
+  <code>while (isActive) { delay(1_500) }</code> loop and makes location state testable without a map.
+</p>
+
+<h2>Build order</h2>
+
+<div class="phase">
+  <div class="head"><span class="tag">P0</span><h3>Skeleton, contracts and gates</h3></div>
+  <p class="goal">Half a day. Nothing renders yet; everything that will judge the project exists.</p>
+  <ul>
+    <li>Repo layout, <code>Taskfile.yml</code>, <code>libs.versions.toml</code>, <code>DMAP_ARTIFACT_ROOT</code> resolution.</li>
+    <li>All seven contracts as interfaces with <code>Unavailable</code> + fake implementations.</li>
+    <li><code>AppContainer</code> manual DI; <code>BackendSettings</code> on DataStore with BuildConfig defaults.</li>
+    <li>CI workflow: unit tests, ktlint, detekt, Android Lint, <code>node --test</code>. Green on an empty app.</li>
+    <li>Debug settings screen with editable backend URLs. <strong>Build this before the map.</strong></li>
+  </ul>
+  <p class="exit"><b>Exit:</b> <code>task check</code> passes in CI; the app launches to a settings screen that can point at any host without a rebuild.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P1</span><h3>Tiles, style and a map on screen</h3></div>
+  <p class="goal">The data pipeline, ported and improved from dmap2's proven scripts.</p>
+  <ul>
+    <li>Planetiler task with pinned image, threads/heap knobs, checksummed extract — port from <code>bootstrap-denmark.sh</code>.</li>
+    <li>Style pipeline: pinned OSM Liberty clone → self-host rewrite → apply <code>style-overrides.json</code> → prefetch glyph fontstacks. Port <code>prepare-style-assets.sh</code>, convert the patch to declarative.</li>
+    <li>Style schema check: every override targets an existing upstream layer id. Wire into CI.</li>
+    <li>Compose + MapLibre with <code>MapController</code> from the start — commands in, <code>Flow&lt;MapEvent&gt;</code> out.</li>
+    <li>Denmark camera defaults, bounds and zoom limits — port <code>MapPresentationConfig</code> values verbatim, they are tuned.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> clean clone → <code>task bootstrap &amp;&amp; task up</code> → app renders Denmark with correct labels and no public network calls.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P2</span><h3>Location, permissions and persistence</h3></div>
+  <p class="goal">Everything stateful, before any feature needs it.</p>
+  <ul>
+    <li><code>LocationProvider</code> as a <code>Flow</code>; permission requested from the locate control or a compact prompt — never on first launch. Port dmap2's UX decision, drop its polling.</li>
+    <li>Styled puck, locate-me control, centred-on-user derivation from camera position.</li>
+    <li>Room + DataStore in place: settings, recents, saved places schema. Empty features, real repositories.</li>
+    <li>Ambient tile cache configured at startup (port the 256 MB default).</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> permission flow works cold; location state is unit-testable with no map instance; a recents row survives process death.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P3</span><h3>Places — the structural fix</h3><span class="chip risk"><span class="dot"></span>Highest-value phase</span></div>
+  <p class="goal">The phase that pays back dmap2's two most expensive findings.</p>
+  <ul>
+    <li>Custom Planetiler profile layer: emit <code>osm_type</code>, <code>osm_id</code>, a normalised <code>dmap_category</code>, and POI polygons into the <em>main</em> tileset. No second tile pipeline.</li>
+    <li><code>pipeline/places/</code>: build <code>places.db</code> (SQLite + FTS5) from the same extract — name, alt names, category, coordinates, address parts, id.</li>
+    <li><code>services/place-gateway/</code>: 0-dependency Node service exposing <code>/search</code>, <code>/reverse</code>, <code>/place/{id}</code>, <code>/healthz</code>. Modelled on the ortofoto gateway.</li>
+    <li>App: tap → <code>queryRenderedFeatures</code> on one POI layer → read id → <code>PlaceDetail.byId</code>. Target under 100 lines total.</li>
+    <li>Debounced search UI, Denmark-biased, typed DTOs via the serialization plugin.</li>
+    <li>Place detail as a real navigation destination, not a card wired into the map screen.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> a POI tap, a search hit and a saved place all yield the identical <code>PlaceId</code>; no reverse-geocode call is needed to label a tapped POI; the hit detector plus its tests fit in ~250 lines total (dmap2: 1,338).</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P4</span><h3>Imagery and map modes</h3></div>
+  <p class="goal">Port the best-behaved service in dmap2 with minimal change.</p>
+  <ul>
+    <li>Port <code>ortofoto-proxy</code> near-verbatim as <code>ortofoto-gateway</code>: 0 deps, token file only, 503 when unconfigured, <code>node --test</code>.</li>
+    <li>Token-file path is the <em>only</em> supported path; the gateway refuses an inline token unless an explicit dev flag is set (F9).</li>
+    <li>Raster layer inserted below labels/POIs; layer toggle; failure degrades back to vector with a message.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> imagery toggle works, labels and pins stay above imagery, and no token appears anywhere in <code>.env</code> or the APK.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P5</span><h3>Product polish and the release path</h3></div>
+  <p class="goal">Turn it from "it works" into something installable.</p>
+  <ul>
+    <li>Saved places and recents surfaced in UI; share-a-place intent.</li>
+    <li>Release build: R8 enabled, signing config, real <code>versionCode</code> strategy, cleartext restricted to debug via a network security config.</li>
+    <li>PMTiles as the shipping tile artifact; TileServer stays the dev path.</li>
+    <li>Screenshot or Compose UI tests for the map screen — the one area dmap2 had zero coverage.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> a signed release APK installs on a phone, points at a LAN backend via the settings screen, and contains no cleartext permission.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P6</span><h3>Routing</h3></div>
+  <p class="goal">The seam reserved since P0 finally gets a service.</p>
+  <ul>
+    <li>Valhalla container, Denmark tiles built in the same task graph, <code>routing</code> compose profile.</li>
+    <li><code>Routing</code> implementation behind the existing contract; route line, distance, ETA, alternatives.</li>
+    <li>No guidance, no voice — display only.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> a route renders between two <code>PlaceId</code>s with distance and ETA, and disabling the routing profile degrades cleanly to the stub.</p>
+</div>
+
+<div class="phase">
+  <div class="head"><span class="tag">P7</span><h3>Offline regions</h3></div>
+  <p class="goal">Where the PMTiles decision pays off.</p>
+  <ul>
+    <li>Region selection UI backed by the Room schema laid down in P2.</li>
+    <li>Region download, storage accounting, eviction controls.</li>
+    <li>Offline place search: ship a pruned <code>places.db</code> per region.</li>
+  </ul>
+  <p class="exit"><b>Exit:</b> airplane mode over a downloaded region still renders, searches and shows place detail.</p>
+</div>
+
+<h2>Decisions to make before P1</h2>
+
+<div class="decision">
+  <h4>1. Place index — build our own, or keep Photon?</h4>
+  <p>
+    Own index: no JVM, tens of MB, full control of Danish ranking and of the <code>PlaceId</code> contract, but we
+    write and tune the relevance ourselves. Photon: proven quality out of the box, but 885 MB, 3 GB RAM, and
+    it drove three separate workarounds in dmap2.
+  </p>
+  <p class="rec">
+    <b>Recommendation:</b> build our own as the default and keep Photon behind a compose profile as the
+    escape hatch. The <code>PlaceSearch</code> contract makes this a reversible decision — which is exactly the
+    property dmap2 proved was worth having. Danish addresses also have an official open dataset worth
+    evaluating as an enrichment source; check its current licence and terms before depending on it.
+  </p>
+</div>
+
+<div class="decision">
+  <h4>2. Custom Planetiler profile, or post-process the tiles?</h4>
+  <p>
+    A custom profile means writing Java against Planetiler's API and maintaining it across upgrades. A
+    post-process pass means a second tool rewriting the MBTiles after the fact.
+  </p>
+  <p class="rec">
+    <b>Recommendation:</b> custom profile. dmap2 already demonstrated what "second pipeline" costs — an
+    81 MB parallel tileset and an invisible style layer. Keep one build producing one artifact.
+  </p>
+</div>
+
+<div class="decision">
+  <h4>3. Manual DI, or Hilt?</h4>
+  <p>
+    <code>AppContainer</code> was 31 lines and caused no problems in dmap2, but dmap3 adds repositories, a
+    database, a controller and multiple screens.
+  </p>
+  <p class="rec">
+    <b>Recommendation:</b> stay manual through P3, reassess at P5. Manual DI keeps build times low and
+    makes test wiring trivial; adopt Hilt only if the container genuinely exceeds ~150 lines.
+  </p>
+</div>
+
+<div class="decision">
+  <h4>4. How much of dmap2 gets copied verbatim?</h4>
+  <p>
+    Rewriting proven code is its own risk. The candidates for straight ports are the ortofoto gateway,
+    the glyph prefetch, the Denmark camera constants, the Planetiler invocation and the compose hardening.
+  </p>
+  <p class="rec">
+    <b>Recommendation:</b> copy those five verbatim on day one and mark them as ported in commit messages.
+    Rebuild only what the findings say is structurally wrong — that is roughly 40% of the codebase, not 100%.
+  </p>
+</div>
+
+<h2>What ports, what gets rebuilt, what gets deleted</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>From dmap2</th><th>Disposition</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><code>services/ortofoto-proxy/</code></td><td><span class="chip port"><span class="dot"></span>Port verbatim</span></td><td>Rename to gateway; make token-file the only path.</td></tr>
+    <tr><td>Glyph prefetch in <code>prepare-style-assets.sh</code></td><td><span class="chip port"><span class="dot"></span>Port verbatim</span></td><td>Solved problem; do not revisit fontnik.</td></tr>
+    <tr><td><code>MapPresentationConfig.denmark()</code></td><td><span class="chip port"><span class="dot"></span>Port verbatim</span></td><td>Hand-tuned camera, bounds and selection zooms.</td></tr>
+    <tr><td>Planetiler invocation + threads/heap logic</td><td><span class="chip port"><span class="dot"></span>Port</span></td><td>Becomes a Taskfile task body.</td></tr>
+    <tr><td>Compose service hardening</td><td><span class="chip port"><span class="dot"></span>Port</span></td><td><code>cap_drop</code>, <code>no-new-privileges</code>, <code>read_only</code>, mem limits, localhost binding.</td></tr>
+    <tr><td>Photon response parser + place model</td><td><span class="chip port"><span class="dot"></span>Port as reference</span></td><td>The <code>PlaceKind</code> mapping is good; re-express as typed DTOs.</td></tr>
+    <tr><td>Search UX (debounce, bias, result rows)</td><td><span class="chip port"><span class="dot"></span>Port behaviour</span></td><td>300 ms debounce, map-centre bias, ≤8 results all validated in use.</td></tr>
+    <tr><td><code>patch-mobile-style.py</code></td><td><span class="chip new"><span class="dot"></span>Rebuild declarative</span></td><td>Values port; the mechanism does not.</td></tr>
+    <tr><td><code>MapViewModel</code> / <code>MapScreen</code></td><td><span class="chip new"><span class="dot"></span>Rebuild</span></td><td>Split by feature; keep the in-flight file split as the target shape.</td></tr>
+    <tr><td>Backend URL resolution (Gradle + scripts)</td><td><span class="chip cut"><span class="dot"></span>Delete</span></td><td>Replaced by runtime settings (F3).</td></tr>
+    <tr><td><code>RenderedPoiHitDetector</code> + area matching</td><td><span class="chip cut"><span class="dot"></span>Delete</span></td><td>Obsolete once tiles carry ids (F1).</td></tr>
+    <tr><td><code>services/poi-area-tiles/</code> pipeline</td><td><span class="chip cut"><span class="dot"></span>Delete</span></td><td>Folded into the main tile build.</td></tr>
+    <tr><td><code>sync-photon-volume.sh</code></td><td><span class="chip cut"><span class="dot"></span>Delete</span></td><td>Gone with the Photon default; internal volumes if Photon returns.</td></tr>
+    <tr><td><code>world-lowres.mbtiles</code> + world-reference remnants</td><td><span class="chip cut"><span class="dot"></span>Delete</span></td><td>Reverted experiment; do not resurrect without a PMTiles world backdrop plan.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Engineering baseline</h2>
+
+<div class="cols">
+  <div>
+    <h3 style="margin-top:0">CI, from commit one</h3>
+    <ul>
+      <li>Unit tests (JVM only — no emulator, no dataset).</li>
+      <li>ktlint + detekt + Android Lint, all failing the build.</li>
+      <li>Style override schema check against the pinned upstream style.</li>
+      <li><code>node --test</code> for every gateway.</li>
+      <li>A weekly scheduled job that re-runs the style schema check against upstream HEAD, so renames surface as a notification rather than a broken bootstrap.</li>
+    </ul>
+    <h3>Testing strategy</h3>
+    <ul>
+      <li>Pure decision logic in <code>domain/</code> — heavily unit tested, as dmap2 did well.</li>
+      <li>Repositories tested against in-memory Room + a fake gateway.</li>
+      <li><code>MapController</code> tested through its command/event API with a stubbed map.</li>
+      <li>Compose UI tests for the map screen states: loading, ready, unavailable, selection, imagery.</li>
+    </ul>
+  </div>
+  <div>
+    <h3 style="margin-top:0">Security defaults</h3>
+    <ul>
+      <li>Cleartext permitted only in the debug manifest, scoped to private ranges by network security config.</li>
+      <li>Secrets are file paths, never values, in <code>.env</code>; gateways refuse inline secrets without a dev flag.</li>
+      <li>Services bind to <code>127.0.0.1</code> unless LAN exposure is explicitly opted into.</li>
+      <li>Every container keeps dmap2's hardening flags; add them at service creation, not later.</li>
+    </ul>
+    <h3>Documentation</h3>
+    <ul>
+      <li><code>architecture.md</code>, <code>setup.md</code>, <code>contracts.md</code> describe the current state only — no milestone narration (F10).</li>
+      <li><code>docs/decisions/</code> holds one short ADR per real decision, including the four above.</li>
+      <li><code>CHANGELOG.md</code> carries the milestone story.</li>
+      <li>Keep dmap2's habit of writing down <em>why</em> a tradeoff was made — it is what made this review possible.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>How we will know it worked</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Signal</th><th>dmap2</th><th>dmap3 target</th></tr></thead>
+  <tbody>
+    <tr><td>Lines to answer "what did the user tap?"</td><td class="num">1,338</td><td class="num">&lt; 250</td></tr>
+    <tr><td>Tile pipelines</td><td class="num">2</td><td class="num">1</td></tr>
+    <tr><td>Search index on disk</td><td class="num">885 MB</td><td class="num">&lt; 100 MB</td></tr>
+    <tr><td>Backend RAM floor</td><td class="num">~3.5 GB</td><td class="num">&lt; 1 GB</td></tr>
+    <tr><td>Steps to repoint the app at a new host</td><td class="num">edit + rebuild + reinstall</td><td class="num">1 text field</td></tr>
+    <tr><td>Generated bytes inside the repo tree</td><td class="num">6.5 GB</td><td class="num">0</td></tr>
+    <tr><td>Bash lines in the pipeline</td><td class="num">~1,900</td><td class="num">&lt; 700</td></tr>
+    <tr><td>CI gates</td><td class="num">0</td><td class="num">6</td></tr>
+    <tr><td>Screens with UI test coverage</td><td class="num">0</td><td class="num">all</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout" style="margin-top:24px">
+  <p>
+    <strong>Sequencing note.</strong> P0 and P3 are the phases that matter. P0 is where the contracts and the
+    runtime-config decision get locked in — both are nearly free at the start and expensive to retrofit.
+    P3 is where the ids land in the tiles, which is what makes the rest of the product cheap. Everything
+    else is porting proven work from dmap2.
+  </p>
+</div>
+
+<footer>
+  dmap3 rebuild plan · drafted 2026-07-27 · derived from <code>docs/stack-review.html</code> (dmap2 @ 48820fe)
+</footer>
+
+</div>
+</body>
+</html>
