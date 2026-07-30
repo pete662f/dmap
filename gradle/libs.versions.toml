@@ -13,11 +13,11 @@
 #   wiring — it exists only to avoid starting the project on a beta compiler.
 
 [versions]
-kotlin = "2.1.21"
+kotlin = "2.4.10"
 agp = "8.7.3"
-compose-bom = "2024.10.01"
-coroutines = "1.9.0"
-serialization = "1.7.3"
+compose-bom = "2026.06.01"
+coroutines = "1.11.0"
+serialization = "1.11.0"
 ktor = "3.0.1"
 room = "2.7.0-alpha11"          # KMP-capable Room. Pin the stable 2.7.x line
 sqlite = "2.5.0-alpha11"        #   when it lands; do NOT jump to Room 3.0 (alpha).
