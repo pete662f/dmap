@@ -14,19 +14,19 @@
 
 [versions]
 kotlin = "2.1.21"
-agp = "8.7.3"
+agp = "9.3.1"
 compose-bom = "2024.10.01"
 coroutines = "1.9.0"
 serialization = "1.7.3"
-ktor = "3.0.1"
-room = "2.7.0-alpha11"          # KMP-capable Room. Pin the stable 2.7.x line
-sqlite = "2.5.0-alpha11"        #   when it lands; do NOT jump to Room 3.0 (alpha).
+ktor = "3.5.2"
+room = "2.8.4"          # KMP-capable Room. Pin the stable 2.7.x line
+sqlite = "2.7.0"        #   when it lands; do NOT jump to Room 3.0 (alpha).
 datastore = "1.1.1"
-maplibre-android = "13.0.2"     # carried over from dmap2, known good
-androidx-core = "1.15.0"
+maplibre-android = "13.5.0"     # carried over from dmap2, known good
+androidx-core = "1.19.0"
 androidx-lifecycle = "2.8.7"
-androidx-activity = "1.9.3"
-ksp = "2.1.21-1.0.27"
+androidx-activity = "1.13.0"
+ksp = "2.3.11"
 junit = "4.13.2"
 
 compileSdk = "35"
